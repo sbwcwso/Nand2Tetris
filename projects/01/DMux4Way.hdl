@@ -11,10 +11,21 @@
  *                {0, 0, 0, in} if sel == 11
  */
 
+/**
+ * Two DMux chips, four And chips and two Not blocks
+*/
+
 CHIP DMux4Way {
     IN in, sel[2];
     OUT a, b, c, d;
 
     PARTS:
     // Put your code here:
+    DMux(in=in, sel=sel[0], a=a1, b=b1);
+    DMux(in=in, sel=sel[0], a=c1, b=d1);
+    Not(in=sel[1], out=Notsel1);
+    And(a=a1, b=Notsel1, out=a);
+    And(a=b1, b=Notsel1, out=b);
+    And(a=c1, b=sel[1], out=c);
+    And(a=d1, b=sel[1], out=d);
 }

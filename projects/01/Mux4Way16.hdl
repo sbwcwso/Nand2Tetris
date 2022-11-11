@@ -11,10 +11,17 @@
  *       d if sel == 11
  */
 
+/**
+ * Three Mux16 block, sel[0] for the first level select and
+ * sel[1] for the second level select
+*/
+
 CHIP Mux4Way16 {
     IN a[16], b[16], c[16], d[16], sel[2];
     OUT out[16];
 
     PARTS:
-    // Put your code here:
+    Mux16(a=a, b=b, sel=sel[0], out=selab);
+    Mux16(a=c, b=d, sel=sel[0], out=selcd);
+    Mux16(a=selab, b=selcd, sel=sel[1], out=out);
 }
