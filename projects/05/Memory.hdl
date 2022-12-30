@@ -27,5 +27,19 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-    // Put your code here:
+    /* Select the RAM */
+    Not(in=address[14], out=selectR);
+    Not(in=address[13], out=selectS1);
+    And(a=address[14], b=selectS1, out=selectS);
+
+    /* Write the RAM */
+    Mux(a=false, b=load, sel=selectR, out=loadR);
+    Mux(a=false, b=load, sel=selectS, out=loadS);
+    RAM16K(in=in, load=loadR, address=address[0..13], out=outR);
+    Screen(in=in, load=loadS, address=address[0..12], out=outS);
+    Keyboard(out=outK);
+
+    /* The output of the RAM */
+    Mux16(a=outK, b=outS, sel=selectS, out=outSK);
+    Mux16(a=outSK, b=outR, sel=selectR, out=out);
 }
