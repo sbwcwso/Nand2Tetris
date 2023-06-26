@@ -5,8 +5,16 @@ import re
 import sys
 import subprocess
 
-from typing import IO, List, Tuple, Union
+from enum import Enum
 
+from typing import Dict, IO, List, NamedTuple, Tuple, Union, Iterable
+
+class VarType(Enum):
+    """The variable type."""
+    STATIC = 0
+    FIELD = 1
+    ARGUMENT = 2
+    LOCAL = 3
 
 class JackTokenizer():
     """A tokenizer.
@@ -96,6 +104,7 @@ class JackTokenizer():
         # eat the extra space
         while self.current_line_index < self.current_line_length and self._current_char == " ":
             self.current_line_index += 1
+
         if self.current_line_index >= self.current_line_length:
             self.current_line_number += 1
             self.current_line_index = 0
@@ -213,33 +222,150 @@ class JackTokenizer():
         return lines
 
 
+class SymbolTable():
+    """Implement SymbolTable."""
+
+    class SymbolItem(NamedTuple):
+        """The item in the symbol table."""
+        type: str
+        kind: VarType
+        index: int
+
+    def __init__(self) -> None:
+        self.reset()
+
+    def reset(self) -> None:
+        """Reset the symbol table."""
+        self.items: Dict[str, SymbolTable.SymbolItem] = {}
+        self.indexes = [0] * len(VarType)
+
+    def define(self, name: str, type: str, kind: VarType)-> None:
+        """Define(adds to the table) a new variable of the given name."""
+        assert name not in self.items
+        self.items[name] = SymbolTable.SymbolItem(
+            type,
+            kind,
+            self.indexes[kind.value]
+        ) 
+        self.indexes[kind.value] += 1
+        
+    def __contains__(self, el: str) -> bool:
+        return el in self.items
+
+    def kind_of(self, name: str) -> Union[VarType, None]:
+        """Return the kind of the named identifier.
+        
+        If the identifier is not found, returns None.
+        """
+        item = self.items.get(name, None)
+        return None if item is None else item.kind
+
+    def type_of(self, name: str) -> Union[str, None]:
+        """Return the type of the named identifier.
+        
+        If the identifier is not found, returns None.
+        """
+        item = self.items.get(name, None)
+        return None if item is None else item.type
+    
+    def index_of(self, name: str) -> Union[int, None]:
+        """Return the index of the named identifier.
+        
+        If the identifier is not found, returns None.
+        """
+        item = self.items.get(name, None)
+        return None if item is None else item.index
+
+
+class VMWriter():
+    "A simple module that writes individual VM commands to the output .vm file."
+    
+    Segments = ["constant", "argument", "local", "static", "this", "that", "pointer", "temp"]
+
+    def __init__(self, output_stream: IO):
+        self.stream = output_stream
+
+    def write_push(self, segment: str, index: int) -> None:
+        """Writes a VM push command."""
+        assert segment in VMWriter.Segments
+        self.stream.write("push {} {}\n".format(segment, index))
+
+    def write_pop(self, segment: str, index: int) -> None:
+        """Writes a VM pop command."""
+        assert segment in VMWriter.Segments
+        self.stream.write("pop {} {}\n".format(segment, index))
+
+    def write_arithmetic(self, command: str) -> None:
+        """Writes a VM arithmetic-logical command."""
+        assert command in CompilationEngine.Arithmetic
+        self.stream.write("{}\n".format(CompilationEngine.Arithmetic[command]))
+
+    def write_label(self):
+        """Writes a VM label command."""
+        pass
+
+    def write_goto(self):
+        """Writes a VM goto command."""
+        pass
+
+    def write_if(self):
+        """Writes a VM if-goto command"""
+        pass
+
+    def write_call(self, name: str, var_nums: int) -> None:
+        """Writes a VM call command."""
+        self.stream.write("call {} {}\n".format(name, var_nums))
+
+    def write_function(self, name: str, n_vars: int) -> None: 
+        """Writes a VM function command."""
+        self.stream.write("function {} {}\n".format(name, n_vars))
+
+    def write_return(self) -> None:
+        """Writes a VM return command."""
+        self.stream.write("return\n");
+
+
 class CompilationEngine():
     """A recursive top-down syntax analyzer.
 
-    This module effects the actual compilation into XML form.
-    It gets its input from a JackTokenizer and writes its parsed XML structure into an output file/stream.
+    This module effects the actual compilation into Vm code.
+    It gets its input from a JackTokenizer and writes its parsed Vm code into an output stream.
     This is done by a series of compile_xxx() methods, where xxx is a corresponding syntactic element of the Jack grammar.
-    The contract between these methods is that each compile_xxx() method should read the syntactic construct xxx from the input, advance() the tokenizer exactly beyond xxx, and output the XML parsing of xxx.
-    Thus, compile_xxx()may only be called if indeed xxx is the next syntactic element of the input. In the next chapter, this module will be modified to output the compiled code rather than XML. 
+    The contract between these methods is that each compile_xxx() method should read the syntactic construct xxx from the input, advance() the tokenizer exactly beyond xxx.
     """
 
-    OP = ["+", "-", "*", "/", "&", "|", "<", ">", "="]
+    OP = [ "+", "-", "*", "/", "&", "|", "<", ">", "="]
+    Arithmetic = {
+        "+": "add",
+        "-": "sub", 
+        "&": "and", 
+        "|": "or", 
+        "<": "lt",
+        ">": "gt", 
+        }
     UNARY_OP = ["-", "~"]
     KEYWORD_CONSTANT = ["true", "false", "null", "this"]
 
     def __init__(self, input_stream: IO, output_stream: IO) -> None:
-        self.tokenizer = JackTokenizer(input_stream)
-        self.input_stream = input_stream
-        self.output_stream = output_stream
-        self.indent_level = 0
-        self.dispatch = {
-            "class": self.compile_class,
-            "static": self.compile_class_var_dec,
-            "field": self.compile_class_var_dec,
-            "constructor": self.compile_subroutine,
-            "function": self.compile_subroutine,
-            "method": self.compile_subroutine,
-            "var": self.compile_var_dec,
+        self.input_stream: IO = input_stream
+        self.output_stream: IO = output_stream
+
+        self.tokenizer = JackTokenizer(self.input_stream)
+
+        self.indent_level = 0  # TODO delete this
+
+        self.class_name: str = ""
+
+        self.class_symbol_table: SymbolTable = SymbolTable()
+        self.subroutine_symbol_table: SymbolTable = SymbolTable()
+
+        self.subroutine_name: str = ""
+        self.subroutine_type: str = ""
+        self.subroutine_arg_nums: int = 0
+
+        self.vm_writer = VMWriter(self.output_stream)
+
+        self.dispatch_statement_compile: dict = {
             "do": self.compile_do,
             "let": self.compile_let,
             "while": self.compile_while,
@@ -249,25 +375,21 @@ class CompilationEngine():
 
     def compile_class(self) -> None:
         """Compiles a complete class"""
-        self._write_xml("<class>\n")
-        self.indent_level += 1
 
         assert self.tokenizer.keyword == "class"
-        self.compile_keyword()
+        self.tokenizer.advance()
 
-        self.compile_identifier()
+        self.class_name = self.get_identifier()
 
-        self.compile_given_symbol("{")
+        self.skip_specified_symbol("{")
 
         while self._is_keyword(["static", "field"]):
             self.compile_class_var_dec()
         while self._is_keyword(["constructor", "function", "method"]):
             self.compile_subroutine()
 
-        self._write_xml("<symbol> {} </symbol>\n".format("}"))
 
-        self.indent_level -= 1
-        self._write_xml("</class>")
+        assert self.tokenizer.symbol == "}"
 
     def compile_class_var_dec(self) -> None:
         """Compiles a static declaration or a field declaration."""
@@ -289,49 +411,43 @@ class CompilationEngine():
 
     def compile_subroutine(self) -> None:
         """Compiles a complete method, function or constructor."""
-        self._write_xml("<subroutineDec>\n")
-        self.indent_level += 1
+        self.subroutine_name = ""
+        self.subroutine_type = ""
+        self.subroutine_arg_nums = 0  # TODO How the caller get this nums
+        self.subroutine_symbol_table.reset()
 
-        self.compile_keyword()
+        self.subroutine_type = self.get_keyword()
+        assert self.subroutine_type in ["constructor", "function", "method"]
 
         if self._is_keyword("void"):
-            self.compile_keyword()
+            self.get_keyword()
         else:
-            self.compile_type()
-        self.compile_identifier()
-        self.compile_given_symbol("(")
+            self.get_type()
+        self.subroutine_name = "{}.{}".format(self.class_name, self.get_identifier())
+        self.skip_specified_symbol("(")
         self.compile_parameter_list()
-        self.compile_given_symbol(")")
+        self.skip_specified_symbol(")")
 
-        self._write_xml("<subroutineBody>\n")
-        self.indent_level += 1
-        self.compile_given_symbol("{")
+        self.vm_writer.write_function(self.subroutine_name, self.subroutine_arg_nums)
+
+        self.skip_specified_symbol("{")
 
         while self._is_keyword("var"):
-            self.compile_var_dec()
+            self.compile_var_dec()  # TODO
 
         self.compile_statements()
 
-        self.compile_given_symbol("}")
-
-        self.indent_level -= 1
-        self._write_xml("</subroutineBody>\n")
-
-        self.indent_level -= 1
-        self._write_xml("</subroutineDec>\n")
+        self.skip_specified_symbol("}")
 
     def compile_parameter_list(self) -> None:
         """Compiles a (possibly empty) parameter list, not including the enclosing '()'."""
-        self._write_xml("<parameterList>\n")
-        self.indent_level += 1
         while not self._is_symbol(")"):
-            self.compile_type()
-            self.compile_identifier()
+            self.subroutine_arg_nums += 1
+            type = self.get_type()
+            identifier = self.get_identifier()
+            self.subroutine_symbol_table.define(identifier, type, VarType.ARGUMENT)
             if (self._is_symbol(",")):
-                self.compile_given_symbol(",")
-
-        self.indent_level -= 1
-        self._write_xml("</parameterList>\n")
+                self.skip_specified_symbol(",")
 
     def compile_var_dec(self) -> None:
         """Compiles a var declaration."""
@@ -353,35 +469,32 @@ class CompilationEngine():
 
     def compile_statements(self) -> None:
         """Compiles a sequence of statements, not including the enclosing '{}'."""
-        self._write_xml("<statements>\n")
-        self.indent_level += 1
-
         while self._is_keyword(["let", "if", "while", "do", "return"]):
-            self.dispatch[self.tokenizer.keyword]()
-
-        self.indent_level -= 1
-        self._write_xml("</statements>\n")
+            self.dispatch_statement_compile[self.tokenizer.keyword]()
 
     def compile_do(self) -> None:
         """Compiles a do statement."""
-        self._write_xml("<doStatement>\n")
-        self.indent_level += 1
-
+        callee_name = ""
         assert self._is_keyword("do")
-        self.compile_keyword()
-        self.compile_identifier()
+        self.get_keyword()
+
+        callee_module = self.get_identifier()
+        if callee_module in self.class_symbol_table or callee_module in self.subroutine_symbol_table:
+            self.argument_nums = 1  # callee is a method
+        else:
+            self.argument_nums = 0  # callee is a function or constructor
 
         if self._is_symbol("."):
-            self.compile_given_symbol(".")
-            self.compile_identifier()
+            self.skip_specified_symbol(".")
+            callee_name = callee_module + "." + self.get_identifier()
 
-        self.compile_given_symbol("(")
+        self.skip_specified_symbol("(")
         self.compile_expression_list()
-        self.compile_given_symbol(")")
-        self.compile_given_symbol(";")
-
-        self.indent_level -= 1
-        self._write_xml("</doStatement>\n")
+        self.skip_specified_symbol(")")
+        self.skip_specified_symbol(";")
+        
+        self.vm_writer.write_call(callee_name, self.argument_nums)
+        self.vm_writer.write_pop("temp", 0)  # TODO Make sure if do statement is always void function
 
     def compile_let(self) -> None:
         """Compiles a let statement."""
@@ -425,18 +538,17 @@ class CompilationEngine():
 
     def compile_return(self) -> None:
         """Compiles a return statement."""
-        self._write_xml("<returnStatement>\n")
-        self.indent_level += 1
 
         assert self._is_keyword("return")
-        self.compile_keyword()
+        self.get_keyword()
 
         if not self._is_symbol(";"):
             self.compile_expression()
-        self.compile_given_symbol(";")
-
-        self.indent_level -= 1
-        self._write_xml("</returnStatement>\n")
+        else:
+            self.vm_writer.write_push("constant", 0)
+        
+        self.vm_writer.write_return()
+        self.skip_specified_symbol(";")
 
     def compile_if(self) -> None:
         """Compiles an if statement, possibly with a trailing else clause."""
@@ -465,16 +577,19 @@ class CompilationEngine():
 
     def compile_expression(self) -> None:
         """Compiles an expression."""
-        self._write_xml("<expression>\n")
-        self.indent_level += 1
-
         self.compile_term()
         while self._is_symbol(CompilationEngine.OP):
-            self.compile_given_symbol(self.tokenizer.symbol)
+            operator = self.tokenizer.symbol
+            self.tokenizer.advance()
             self.compile_term()
-
-        self.indent_level -= 1
-        self._write_xml("</expression>\n")
+            if operator in CompilationEngine.Arithmetic:
+                self.vm_writer.write_arithmetic(operator)
+            elif operator == "*":
+                self.vm_writer.write_call("Math.multiply", 2)
+            elif operator == "/":
+                self.vm_writer.write_call("Math.divide", 2)
+            else:
+                raise Exception("Unsupport operatore {}".format(operator))  # TODO need to be done
 
     def compile_term(self) -> None:
         """Compiles a term.
@@ -486,12 +601,9 @@ class CompilationEngine():
         which may be one of “[“, “(“, “.”, suffices to distinguish between the three possibilities.
         Any other token is not part of this term and should not be advanced over. 
         """
-        self._write_xml("<term>\n")
-        self.indent_level += 1
 
         if self.tokenizer.token_type == "integerConstant":
-            self._write_xml("<integerConstant> {} </integerConstant>\n".format(
-                self.tokenizer.int_val))
+            self.vm_writer.write_push("constant", self.tokenizer.int_val)
             self.tokenizer.advance()
         elif self.tokenizer.token_type == "stringConstant":
             self._write_xml("<stringConstant> {} </stringConstant>\n".format(
@@ -500,9 +612,9 @@ class CompilationEngine():
         elif self._is_keyword(CompilationEngine.KEYWORD_CONSTANT):
             self.compile_keyword()
         elif self._is_symbol("("):
-            self.compile_given_symbol("(")
+            self.skip_specified_symbol("(")
             self.compile_expression()
-            self.compile_given_symbol(")")
+            self.skip_specified_symbol(")")
         elif self._is_symbol(CompilationEngine.UNARY_OP):
             self.compile_given_symbol(self.tokenizer.symbol)
             self.compile_term()
@@ -525,20 +637,13 @@ class CompilationEngine():
         else:
             raise Exception("Error term.")
 
-        self.indent_level -= 1
-        self._write_xml("</term>\n")
-
     def compile_expression_list(self) -> None:
         """Compiles a (possible empty) comma-separated list of expression."""
-        self._write_xml("<expressionList>\n")
-        self.indent_level += 1
         while not self._is_symbol(")"):
             self.compile_expression()
+            self.argument_nums += 1
             if self._is_symbol(","):
-                self.compile_given_symbol(",")
-
-        self.indent_level -= 1
-        self._write_xml("</expressionList>\n")
+                self.skip_specified_symbol(",")
 
     def compile_type(self) -> None:
         """Compile a type."""
@@ -557,13 +662,41 @@ class CompilationEngine():
             self.tokenizer.keyword))
         self.tokenizer.advance()
 
-    def compile_identifier(self) -> None:
+    def get_identifier(self) -> str:
+        """Return the current identifier and advance the tokenizer."""
+        identifier = self.tokenizer.identifier
+        self.tokenizer.advance()
+        return identifier
+
+    def get_type(self) -> str:
+        """Get a type and advance the tokenizer."""
+        if self.tokenizer.token_type == "identifier":
+            return self.get_identifier()
+        elif self.tokenizer.token_type == "keyword" and self.tokenizer.keyword in [
+                "int", "char", "boolean"
+        ]:
+            return self.get_keyword()
+        else:
+            raise Exception("Current token is not a type!")
+
+    def get_keyword(self) -> str:
+        """Return the current keyword and advance the tokenizer."""
+        keyword = self.tokenizer.keyword
+        self.tokenizer.advance()
+        return keyword
+
+    def compile_identifier(self) -> None:  # TODO delete
         """Compile an Identifier."""
         self._write_xml("<identifier> {} </identifier>\n".format(
             self.tokenizer.identifier))
         self.tokenizer.advance()
 
-    def compile_given_symbol(self, symbol: str) -> None:
+    def skip_specified_symbol(self, symbol: str) -> None:
+        """Skip the specified symbol."""
+        assert self.tokenizer.symbol == symbol
+        self.tokenizer.advance()
+
+    def compile_given_symbol(self, symbol: str) -> None:  # TODO delete
         """Compile a symbol, make sure the symbol equals to the input."""
         assert self.tokenizer.symbol == symbol
         if symbol in JackAnalyzer.XML_token_convert:
@@ -571,7 +704,7 @@ class CompilationEngine():
         self._write_xml("<symbol> {} </symbol>\n".format(symbol))
         self.tokenizer.advance()
 
-    def _is_symbol(self, symbol: Union[str, List[str]]) -> bool:
+    def _is_symbol(self, symbol: Union[str, Iterable[str]]) -> bool:
         """Return True if current token is the given symbol."""
         if type(symbol) == str:
             return self.tokenizer.token_type == "symbol" and self.tokenizer.symbol == symbol
@@ -618,6 +751,26 @@ class JackAnalyzer():
         assert self.jack_files
         self.output_path = os.path.join(self.base_fold, "output")
         os.makedirs(self.output_path, exist_ok=True)
+        
+    def get_vm_file_name(self, jack_file: str) -> str:
+        """Return the vm file name of the given jack_file path."""
+        jack_file_name_without_extension = os.path.splitext(
+            os.path.basename(jack_file))[0]
+        return os.path.join(self.base_fold, jack_file_name_without_extension + ".vm")
+    
+    def generate_vm_file(self) -> None:
+        """Generate the corresponding vm file for each jack file."""
+        for jack_file in self.jack_files:
+            print("Start generating vm file for {}.".format(jack_file))
+            with open(jack_file, "r", encoding="utf-8") as jack_file_io:
+                vm_file = self.get_vm_file_name(jack_file)
+                with open(vm_file, "w", encoding="utf-8") as vm_file_io:
+                    compilation_engine = CompilationEngine(jack_file_io, vm_file_io)
+                    compilation_engine.tokenizer.advance()
+                    compilation_engine.compile_class()
+                    assert compilation_engine.tokenizer.has_more_tokens() is False
+            print("Generating vm file for {} at {} success.".format(jack_file, vm_file))
+        
 
     def get_output_file_name(self, jack_file: str) -> Tuple[str, str, str, str]:
         """Return the tokenizer xml file path and the analyzer output file path of the input jack_file path"""
@@ -718,4 +871,5 @@ class JackAnalyzer():
 
 if __name__ == "__main__":
     assert len(sys.argv) == 2
-    JackAnalyzer(sys.argv[1]).generate_xml(compare=False)
+    JackAnalyzer(sys.argv[1]).generate_vm_file()
+

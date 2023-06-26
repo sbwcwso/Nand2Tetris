@@ -25,48 +25,87 @@ class Parser():
         assert self.has_more_commands()
         self.current_command = self.commands[self.line]
         self.line += 1
+        self._parse_current_command()
+
+    @property
+    def command_type(self):
+        "Return the type of the current command."
+        return self._command_type
+
+    @property
+    def symbol(self):
+        """
+        Return the Symbol or decimal xxx
+        of the current commmand @Xxx or (Xxx).
+        """
+        assert self._command_type == "A_COMMAND" \
+            or self._command_type == "L_COMMAND"
+        return self._symbol
+
+    @property
+    def dest(self):
+        "Return the dest mnemonic in the current C-COMMAND."
+        assert self._command_type == "C_COMMAND"
+        return self._dest
+
+    @property
+    def comp(self):
+        "Return the comp mnemonic in the current C-COMMAND"
+        assert self._command_type == "C_COMMAND"
+        return self._comp
+
+    @property
+    def jump(self):
+        "Return the jump mnemonic in the current C-COMMAND"
+        assert self._command_type == "C_COMMAND"
+        return self._jump
 
     def reset(self):
         "Reset to the first command."
         self.line = 0
 
-    def command_type(self):
+    def _parse_current_command(self):
         "Return the type of current command."
         buffer = ""
-        self.dest = ""
-        self.comp = ""
-        self.jump = ""
-        self.symbol = ""
+        self._dest = ""
+        self._comp = ""
+        self._jump = ""
+        self._symbol = ""
+        self._command_type = ""
         jump_exist = False
         if self.current_command.startswith("@"):
-            self.symbol = self.current_command[1:]
-            return "A_COMMAND"
+            self._symbol = self.current_command[1:]
+            self._command_type = "A_COMMAND"
+            return
         for i in range(len(self.current_command)):
             if self.current_command[i] == "=":
-                self.dest = buffer if buffer else None
+                self._dest = buffer if buffer else None
                 buffer = ""
             elif self.current_command[i] == ";":
-                self.comp = buffer if buffer else None
+                self._comp = buffer if buffer else None
                 buffer = ""
                 jump_exist = True
             else:
                 buffer += self.current_command[i]
         if jump_exist:
-            self.jump = buffer if buffer else None
+            self._jump = buffer if buffer else None
         else:
-            self.comp = buffer if buffer else None
-        if self.dest in Code.DEST.keys() and \
-                self.comp in Code.COMP.keys() and \
-                self.jump in Code.JUMP.keys():
-            return "C_COMMAND"
+            self._comp = buffer if buffer else None
+        if self._dest in Code.DEST.keys() and \
+                self._comp in Code.COMP.keys() and \
+                self._jump in Code.JUMP.keys():
+            self._command_type = "C_COMMAND"
+            return
         if self.current_command[0] == "(" and self.current_command[-1] == ")":
-            self.symbol = self.current_command[1:-1]
-            return "L_COMMAND"
-        raise Exception("{} is not a valid command, {}, {}, {}, {}".format(self.current_command,
-                                                                           self.dest,
-                                                                           self.comp,
-                                                                           self.jump,
-                                                                           self.symbol))
+            self._symbol = self.current_command[1:-1]
+            self._command_type = "L_COMMAND"
+            return
+        raise Exception("{} is not a valid command, {}, {}, {}, {}".format(
+            self.current_command,
+            self._dest,
+            self._comp,
+            self._jump,
+            self._symbol))
 
     @staticmethod
     def remove_whitespace_comments(line: str) -> str:
@@ -173,7 +212,7 @@ class AssemblerNoSymbols():
         while self.parse.has_more_commands():
             command = ""
             self.parse.advance()
-            command_type = self.parse.command_type()
+            command_type = self.parse.command_type
             assert command_type != "L_COMMAND"
             if command_type == "A_COMMAND":
                 assert self.parse.symbol.isdigit()
@@ -202,7 +241,7 @@ class Assembler(AssemblerNoSymbols):
         address = 0
         while self.parse.has_more_commands():
             self.parse.advance()
-            if self.parse.command_type() == "L_COMMAND":
+            if self.parse.command_type == "L_COMMAND":
                 assert self.parse.symbol not in self.SymbolTable
                 self.SymbolTable[self.parse.symbol] = address
             else:
@@ -214,7 +253,7 @@ class Assembler(AssemblerNoSymbols):
         while self.parse.has_more_commands():
             command = ""
             self.parse.advance()
-            command_type = self.parse.command_type()
+            command_type = self.parse.command_type
             if command_type == "L_COMMAND":
                 continue
             if command_type == "A_COMMAND":

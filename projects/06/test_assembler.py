@@ -4,30 +4,11 @@ import filecmp
 import os
 import unittest
 
-from assembler import Parser, AssemblerNoSymbols, Assembler
+from Assembler import Parser, AssemblerNoSymbols, Assembler
 from unittest.mock import mock_open, patch
 
 
 class TestParser(unittest.TestCase):
-    # def test_remove_whitespace_comment(self):
-    #     lines = [
-    #         "// Computes R2 = max(R0, R1)",
-    #         "@R0",
-    #         "  D=M              // D = first number",
-    #         " @R1 ",
-    #         "D=D-M            // D = first number - second number",
-    #         "",
-    #     ]
-    #     results = [
-    #         "",
-    #         "@R0",
-    #         "D=M",
-    #         "@R1",
-    #         "D=D-M",
-    #         "",
-    #     ]
-    #     for line, result in zip(lines, results):
-    #         self.assertEqual(Parser.remove_whitespace_comments(line), result)
 
     read_data = """\
 // This file is part of www.nand2tetris.org
@@ -103,17 +84,19 @@ class TestParser(unittest.TestCase):
     ]
 
     def test_remove_whitespace_comment(self):
-        with patch("builtins.open", new_callable=mock_open, read_data=self.read_data) as mock_file:
+        with patch("builtins.open", new_callable=mock_open,
+                   read_data=self.read_data):
             parser = Parser("test.txt")
             self.assertListEqual(parser.commands, self.commands)
 
     def test_command_type(self):
-        with patch("builtins.open", new_callable=mock_open, read_data=self.read_data) as mock_file:
+        with patch("builtins.open", new_callable=mock_open,
+                   read_data=self.read_data):
             parser = Parser("test.txt")
             command_types = []
             while parser.has_more_commands():
                 parser.advance()
-                command_types.append(parser.command_type())
+                command_types.append(parser.command_type)
             self.assertListEqual(command_types, self.command_types)
 
 
@@ -123,8 +106,10 @@ class TestAssemblerNoSymbols(unittest.TestCase):
         target_hack_files = ["./add/Add.hack",
                              "./max/MaxL.hack", "./pong/PongL.hack"]
         correct_hack_files = ["./add/Add_correct.hack",
-                              "./max/MaxL_correct.hack", "./pong/PongL_correct.hack"]
-        for asm_file, target_hack_file, correct_hack_file in zip(asm_files, target_hack_files, correct_hack_files):
+                              "./max/MaxL_correct.hack",
+                              "./pong/PongL_correct.hack"]
+        for asm_file, target_hack_file, correct_hack_file\
+                in zip(asm_files, target_hack_files, correct_hack_files):
             try:
                 os.remove(target_hack_file)
             except FileNotFoundError:
@@ -162,7 +147,8 @@ class TestAssembler(unittest.TestCase):
             "./rect/RectL_correct.hack",
             "./rect/Rect_correct.hack",
         ]
-        for asm_file, target_hack_file, correct_hack_file in zip(asm_files, target_hack_files, correct_hack_files):
+        for asm_file, target_hack_file, correct_hack_file \
+                in zip(asm_files, target_hack_files, correct_hack_files):
             try:
                 os.remove(target_hack_file)
             except FileNotFoundError:
