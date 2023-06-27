@@ -248,7 +248,7 @@ class SymbolTable():
             self.indexes[kind.value]
         ) 
         self.indexes[kind.value] += 1
-        
+
     def __contains__(self, el: str) -> bool:
         return el in self.items
 
@@ -724,7 +724,10 @@ class CompilationEngine():
 
 
 class JackAnalyzer():
-    """A main driver that organizes and invokes everything."""
+    """A main driver that organizes and invokes everything.
+    
+    Used in project 10, not used in this project
+    """
 
     XML_token_convert = {
         "<": "&lt;",
@@ -869,7 +872,46 @@ class JackAnalyzer():
             raise Exception("Error: {}".format(e.stdout))
 
 
+class JackCompiler():
+    """Top-most module."""
+    def __init__(self, jack_file_or_path: str):
+        self.jack_files = []
+        if os.path.isfile(jack_file_or_path):
+            assert os.path.splitext(jack_file_or_path)[1] == ".jack"
+            self.jack_files = [jack_file_or_path]
+            self.base_fold = os.path.split(jack_file_or_path)[0]
+        elif os.path.isdir(jack_file_or_path):
+            self.base_fold = jack_file_or_path.rstrip(os.path.sep)
+            self.jack_files = [
+                os.path.join(self.base_fold, file)
+                for file in os.listdir(self.base_fold)
+                if file.endswith(".jack")
+            ]
+        else:
+            raise Exception("Must input a jack file or a directory.")
+        assert self.jack_files
+        
+    def get_vm_file_name(self, jack_file: str) -> str:
+        """Return the vm file name of the given jack_file path."""
+        jack_file_name_without_extension = os.path.splitext(
+            os.path.basename(jack_file))[0]
+        return os.path.join(self.base_fold, jack_file_name_without_extension + ".vm")
+    
+    def generate_vm_files(self) -> None:
+        """Generate the corresponding vm file for each jack file."""
+        for jack_file in self.jack_files:
+            print("Start generating vm file for {}.".format(jack_file))
+            with open(jack_file, "r", encoding="utf-8") as jack_file_io:
+                vm_file = self.get_vm_file_name(jack_file)
+                with open(vm_file, "w", encoding="utf-8") as vm_file_io:
+                    compilation_engine = CompilationEngine(jack_file_io, vm_file_io)
+                    compilation_engine.tokenizer.advance()
+                    compilation_engine.compile_class()
+                    assert compilation_engine.tokenizer.has_more_tokens() is False
+            print("Generating vm file for {} at {} success.".format(jack_file, vm_file))
+        
+
 if __name__ == "__main__":
     assert len(sys.argv) == 2
-    JackAnalyzer(sys.argv[1]).generate_vm_file()
+    JackCompiler(sys.argv[1]).generate_vm_files()
 

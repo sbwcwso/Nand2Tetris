@@ -4,54 +4,32 @@ import os
 import subprocess
 import unittest
 
-from unittest.mock import mock_open, patch
 
-from JackCompiler import JackTokenizer, CompilationEngine, JackAnalyzer
+from JackCompiler import JackCompiler
 
-class TestJackTokenizer(unittest.TestCase):
-    def test_preprocessor(self):
-        inputs = [
-            "  return True;   ",
-            "// inline comment",
-            "a = a + 1; // inline comment",
-            "/**/",
-            "/***/",
-            "b = b +  1;   /* comment block */",
-            "/** api comment */",
-            "/* multiple comment block  ",
-            "* multiple comment block  ",
-            "* multiple comment block */  c = c + 1;",
-            "/* multiple comment block */  d = d + 1;",
-            "a=-1;"
-        ]
-        target_outputs = [
-            "return True ;",
-            "a = a + 1 ;",
-            "b = b + 1 ;",
-            "c = c + 1 ;",
-            "d = d + 1 ;",
-            "a = - 1 ;",
-        ]
-        self.assertListEqual(target_outputs, JackTokenizer.preprocessor(inputs))
 
-    def test_tokenizer(self):
-        """Write to xml file in the output directory and compare with the correct one"""
-        jack_filepaths = [
-            "./ArrayTest/Main.jack",
-            "./ExpressionLessSquare",
-            "./Square",
-        ]
-        for jack_filepath in jack_filepaths:
-            JackAnalyzer(jack_filepath).test_tokenizer()
+def compare_files(file: str, target_file: str) -> bool:
+    command = "diff {} {} 2>&1".format(file, target_file)
+    try:
+        # 运行 shell 命令，并捕获输出结果
+        subprocess.run(command,
+                        check=True,
+                        shell=True,
+                        capture_output=True,
+                        text=True)
+        print("{} and {} is the same!".format(file, target_file))
+    except subprocess.CalledProcessError as e:
+        print("diff returned non-zero exit status. Output:")
+        print(e.stdout)
+        return False
+    return True
 
-    def test_analyzer(self):
-        jack_filepaths = [
-            "./ArrayTest",
-            "./ExpressionLessSquare",
-            "./Square"
-        ]
-        for jack_filepath in jack_filepaths:
-            JackAnalyzer(jack_filepath).generate_xml()
+
+class TestJackCompiler(unittest.TestCase):
+    """Test JackCompiler with the given Jack project."""
+    def test_Seven(self):
+        JackCompiler("./Seven").generate_vm_files()
+        self.assertTrue(compare_files("./Seven/Main.vm", "./Seven/correct/Main.vm"))
         
 
 if __name__ == "__main__":
