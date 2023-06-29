@@ -9,12 +9,27 @@ from enum import Enum
 
 from typing import Dict, IO, List, NamedTuple, Tuple, Union, Iterable
 
-class VarType(Enum):
+
+Segments = ["constant", "argument", "local", "static", "this", "that", "pointer", "temp"]
+
+class Segment(Enum):
+    """The VM segments."""
+    CONSTANT =  "constant"
+    ARGUMENT = "argument"
+    LOCAL = "local"
+    STATIC = "static"
+    THIS = "this"
+    THAT = "that"
+    POINTER = "pointer"
+    TEMP = "temp"
+
+class VarKind(Enum):
     """The variable type."""
-    STATIC = 0
-    FIELD = 1
-    ARGUMENT = 2
-    LOCAL = 3
+    STATIC = Segment.STATIC
+    FIELD = Segment.LOCAL
+    ARGUMENT = Segment.ARGUMENT
+    VAR = Segment.LOCAL
+
 
 class JackTokenizer():
     """A tokenizer.
@@ -228,7 +243,7 @@ class SymbolTable():
     class SymbolItem(NamedTuple):
         """The item in the symbol table."""
         type: str
-        kind: VarType
+        kind: VarKind
         index: int
 
     def __init__(self) -> None:
@@ -237,22 +252,27 @@ class SymbolTable():
     def reset(self) -> None:
         """Reset the symbol table."""
         self.items: Dict[str, SymbolTable.SymbolItem] = {}
-        self.indexes = [0] * len(VarType)
+        self.indexes = {
+            VarKind.STATIC: 0,
+            VarKind.VAR: 0,
+            VarKind.FIELD: 0,
+            VarKind.ARGUMENT: 0
+        }
 
-    def define(self, name: str, type: str, kind: VarType)-> None:
+    def define(self, name: str, type: str, kind: VarKind)-> None:
         """Define(adds to the table) a new variable of the given name."""
         assert name not in self.items
         self.items[name] = SymbolTable.SymbolItem(
             type,
             kind,
-            self.indexes[kind.value]
+            self.indexes[kind]
         ) 
-        self.indexes[kind.value] += 1
+        self.indexes[kind] += 1
 
     def __contains__(self, el: str) -> bool:
         return el in self.items
 
-    def kind_of(self, name: str) -> Union[VarType, None]:
+    def kind_of(self, name: str) -> Union[VarKind, None]:
         """Return the kind of the named identifier.
         
         If the identifier is not found, returns None.
@@ -280,37 +300,33 @@ class SymbolTable():
 class VMWriter():
     "A simple module that writes individual VM commands to the output .vm file."
     
-    Segments = ["constant", "argument", "local", "static", "this", "that", "pointer", "temp"]
-
     def __init__(self, output_stream: IO):
         self.stream = output_stream
 
-    def write_push(self, segment: str, index: int) -> None:
+    def write_push(self, segment: Segment, index: int) -> None:
         """Writes a VM push command."""
-        assert segment in VMWriter.Segments
-        self.stream.write("push {} {}\n".format(segment, index))
+        self.stream.write("push {} {}\n".format(segment.value, index))
 
-    def write_pop(self, segment: str, index: int) -> None:
+    def write_pop(self, segment: Segment, index: int) -> None:
         """Writes a VM pop command."""
-        assert segment in VMWriter.Segments
-        self.stream.write("pop {} {}\n".format(segment, index))
+        self.stream.write("pop {} {}\n".format(segment.value, index))
 
     def write_arithmetic(self, command: str) -> None:
         """Writes a VM arithmetic-logical command."""
-        assert command in CompilationEngine.Arithmetic
-        self.stream.write("{}\n".format(CompilationEngine.Arithmetic[command]))
+        assert command in CompilationEngine.BinaryOpArithmetic.values() or command in CompilationEngine.UnaryOp.values()
+        self.stream.write("{}\n".format(command))
 
-    def write_label(self):
+    def write_label(self, label_name: str) -> None:
         """Writes a VM label command."""
-        pass
+        self.stream.write("label {}".format(label_name))
 
-    def write_goto(self):
+    def write_goto(self, label_name: str) -> None:
         """Writes a VM goto command."""
-        pass
+        self.stream.write("goto {}".format(label_name))
 
-    def write_if(self):
+    def write_if(self, label_name: str) -> None:
         """Writes a VM if-goto command"""
-        pass
+        self.stream.write("if-goto {}".format(label_name))
 
     def write_call(self, name: str, var_nums: int) -> None:
         """Writes a VM call command."""
@@ -324,6 +340,18 @@ class VMWriter():
         """Writes a VM return command."""
         self.stream.write("return\n");
 
+    def write_keyword_constant(self, keyword_constant: str) -> None:
+        """Writes a given VM keyword constant."""
+        if keyword_constant == "true":
+            self.write_push(Segment.CONSTANT, 1)
+            self.write_arithmetic("neg")
+        elif keyword_constant == "false" or keyword_constant == "null":
+            self.write_push(Segment.CONSTANT, 0)
+        elif keyword_constant == "this":  # TODO need to be make sure
+            self.write_push(Segment.POINTER, 0)
+        else:
+            raise Exception("No handle program for {}.".format(keyword_constant))
+
 
 class CompilationEngine():
     """A recursive top-down syntax analyzer.
@@ -335,15 +363,19 @@ class CompilationEngine():
     """
 
     OP = [ "+", "-", "*", "/", "&", "|", "<", ">", "="]
-    Arithmetic = {
+    BinaryOpArithmetic = {
         "+": "add",
         "-": "sub", 
         "&": "and", 
         "|": "or", 
         "<": "lt",
         ">": "gt", 
+        "=": "eq",
         }
-    UNARY_OP = ["-", "~"]
+    UnaryOp = {
+        "-": "neg", 
+        "~": "not"
+        }
     KEYWORD_CONSTANT = ["true", "false", "null", "this"]
 
     def __init__(self, input_stream: IO, output_stream: IO) -> None:
@@ -362,6 +394,8 @@ class CompilationEngine():
         self.subroutine_name: str = ""
         self.subroutine_type: str = ""
         self.subroutine_arg_nums: int = 0
+        self.while_index:int = 0
+        self.if_index:int = 0
 
         self.vm_writer = VMWriter(self.output_stream)
 
@@ -381,7 +415,7 @@ class CompilationEngine():
 
         self.class_name = self.get_identifier()
 
-        self.skip_specified_symbol("{")
+        self.get_specified_symbol("{")
 
         while self._is_keyword(["static", "field"]):
             self.compile_class_var_dec()
@@ -409,132 +443,141 @@ class CompilationEngine():
         self.indent_level -= 1
         self._write_xml("</classVarDec>\n")
 
-    def compile_subroutine(self) -> None:
+    def compile_subroutine(self) -> None:  # DOING
         """Compiles a complete method, function or constructor."""
+        self.subroutine_symbol_table.reset()
+
         self.subroutine_name = ""
         self.subroutine_type = ""
-        self.subroutine_arg_nums = 0  # TODO How the caller get this nums
-        self.subroutine_symbol_table.reset()
+        self.subroutine_arg_nums = 0
+        self.while_index = 0
+        self.if_index = 0
 
         self.subroutine_type = self.get_keyword()
         assert self.subroutine_type in ["constructor", "function", "method"]
-
+        
         if self._is_keyword("void"):
             self.get_keyword()
         else:
             self.get_type()
+            
         self.subroutine_name = "{}.{}".format(self.class_name, self.get_identifier())
-        self.skip_specified_symbol("(")
-        self.compile_parameter_list()
-        self.skip_specified_symbol(")")
+
+        self.get_specified_symbol("(")
+        self.compile_parameter_list()  # No VM write here
+        self.get_specified_symbol(")")
+
+        self.get_specified_symbol("{")
+
+        while self._is_keyword("var"):
+            self.compile_var_dec()  # NO VM write here
 
         self.vm_writer.write_function(self.subroutine_name, self.subroutine_arg_nums)
 
-        self.skip_specified_symbol("{")
-
-        while self._is_keyword("var"):
-            self.compile_var_dec()  # TODO
-
+        if self.subroutine_type == "method": 
+            # Set this to the first argument
+            self.vm_writer.write_push(Segment.ARGUMENT, 0)
+            self.vm_writer.write_pop(Segment.POINTER, 0)
+            
         self.compile_statements()
 
-        self.skip_specified_symbol("}")
+        self.get_specified_symbol("}")
 
-    def compile_parameter_list(self) -> None:
+    def compile_parameter_list(self) -> None:  # DONE
         """Compiles a (possibly empty) parameter list, not including the enclosing '()'."""
         while not self._is_symbol(")"):
             self.subroutine_arg_nums += 1
             type = self.get_type()
             identifier = self.get_identifier()
-            self.subroutine_symbol_table.define(identifier, type, VarType.ARGUMENT)
+            self.subroutine_symbol_table.define(identifier, type, VarKind.ARGUMENT)
             if (self._is_symbol(",")):
-                self.skip_specified_symbol(",")
+                self.get_specified_symbol(",")
 
-    def compile_var_dec(self) -> None:
+    def compile_var_dec(self) -> None:  # DONE
         """Compiles a var declaration."""
-        self._write_xml("<varDec>\n")
-        self.indent_level += 1
-
-        assert self._is_keyword("var")
-        self.compile_keyword()  # var keyword
-        self.compile_type()
-        self.compile_identifier()
+        assert self.get_keyword() == "var"
+        type = self.get_type()
+        identifier = self.get_identifier()
+        self.subroutine_symbol_table.define(identifier, type, VarKind.VAR)
 
         while self._is_symbol(","):
-            self.compile_given_symbol(",")
-            self.compile_identifier()
+            self.get_specified_symbol(",")
+            identifier = self.get_identifier()
+            self.subroutine_symbol_table.define(identifier, type, VarKind.VAR)
 
-        self.compile_given_symbol(";")
-        self.indent_level -= 1
-        self._write_xml("</varDec>\n")
+        self.get_specified_symbol(";")
 
     def compile_statements(self) -> None:
         """Compiles a sequence of statements, not including the enclosing '{}'."""
         while self._is_keyword(["let", "if", "while", "do", "return"]):
             self.dispatch_statement_compile[self.tokenizer.keyword]()
 
-    def compile_do(self) -> None:
+    def compile_do(self) -> None:  # TODO handle method call
         """Compiles a do statement."""
         callee_name = ""
         assert self._is_keyword("do")
         self.get_keyword()
 
-        callee_module = self.get_identifier()
-        if callee_module in self.class_symbol_table or callee_module in self.subroutine_symbol_table:
+        callee_name = self.get_identifier()
+        if callee_name in self.class_symbol_table or callee_name in self.subroutine_symbol_table:
             self.argument_nums = 1  # callee is a method
         else:
             self.argument_nums = 0  # callee is a function or constructor
 
         if self._is_symbol("."):
-            self.skip_specified_symbol(".")
-            callee_name = callee_module + "." + self.get_identifier()
+            self.get_specified_symbol(".")
+            callee_name = callee_name + "." + self.get_identifier()
 
-        self.skip_specified_symbol("(")
+        self.get_specified_symbol("(")
         self.compile_expression_list()
-        self.skip_specified_symbol(")")
-        self.skip_specified_symbol(";")
+        self.get_specified_symbol(")")
+        self.get_specified_symbol(";")
         
         self.vm_writer.write_call(callee_name, self.argument_nums)
-        self.vm_writer.write_pop("temp", 0)  # TODO Make sure if do statement is always void function
+        self.vm_writer.write_pop(Segment.TEMP, 0)  # TODO Make sure if do statement is always void function
 
     def compile_let(self) -> None:
         """Compiles a let statement."""
-        self._write_xml("<letStatement>\n")
-        self.indent_level += 1
 
-        assert self._is_keyword("let")
-        self.compile_keyword()
-        self.compile_identifier()
+        assert self.get_keyword() == "let"
+
+        var_name = self.get_identifier()
+        index = self.subroutine_symbol_table.index_of(var_name)
+        assert index is not None
 
         if self._is_symbol("["):
-            self.compile_given_symbol("[")
-            self.compile_expression()
-            self.compile_given_symbol("]")
-
-        self.compile_given_symbol("=")
+            raise Exception("Need to be done")  # TODO Need to handle.
+            # self.compile_given_symbol("[")
+            # self.compile_expression()
+            # self.compile_given_symbol("]")
+        
+        self.get_specified_symbol("=")
         self.compile_expression()
-        self.compile_given_symbol(";")
+        self.get_specified_symbol(";")
 
-        self.indent_level -= 1
-        self._write_xml("</letStatement>\n")
+        self.vm_writer.write_pop(Segment.LOCAL, index)
 
     def compile_while(self) -> None:
         """Compiles a while statement."""
-        self._write_xml("<whileStatement>\n")
-        self.indent_level += 1
 
         assert self._is_keyword("while")
-        self.compile_keyword()
+        self.get_keyword()
 
-        self.compile_given_symbol("(")
+        self.vm_writer.write_label("WHILE_EX{}".format(self.while_index))
+        self.get_specified_symbol("(")
         self.compile_expression()
-        self.compile_given_symbol(")")
+        self.get_specified_symbol(")")
 
-        self.compile_given_symbol("{")
+        self.vm_writer.write_arithmetic("not")
+        self.vm_writer.write_if("WHILE_END{}".format(self.while_index))
+
+        self.get_specified_symbol("{")
         self.compile_statements()
-        self.compile_given_symbol("}")
+        self.get_specified_symbol("}")
 
-        self.indent_level -= 1
-        self._write_xml("</whileStatement>\n")
+        self.vm_writer.write_goto("WHILE_EX{}".format(self.while_index))
+        self.vm_writer.write_label("WHILE_END{}".format(self.while_index))
+        self.while_index += 1
 
     def compile_return(self) -> None:
         """Compiles a return statement."""
@@ -545,10 +588,10 @@ class CompilationEngine():
         if not self._is_symbol(";"):
             self.compile_expression()
         else:
-            self.vm_writer.write_push("constant", 0)
+            self.vm_writer.write_push(Segment.CONSTANT, 0)
         
         self.vm_writer.write_return()
-        self.skip_specified_symbol(";")
+        self.get_specified_symbol(";")
 
     def compile_if(self) -> None:
         """Compiles an if statement, possibly with a trailing else clause."""
@@ -582,20 +625,18 @@ class CompilationEngine():
             operator = self.tokenizer.symbol
             self.tokenizer.advance()
             self.compile_term()
-            if operator in CompilationEngine.Arithmetic:
-                self.vm_writer.write_arithmetic(operator)
+            if operator in CompilationEngine.BinaryOpArithmetic:
+                self.vm_writer.write_arithmetic(CompilationEngine.BinaryOpArithmetic[operator])
             elif operator == "*":
                 self.vm_writer.write_call("Math.multiply", 2)
             elif operator == "/":
                 self.vm_writer.write_call("Math.divide", 2)
-            else:
-                raise Exception("Unsupport operatore {}".format(operator))  # TODO need to be done
 
     def compile_term(self) -> None:
         """Compiles a term.
 
         This method is faced with a slight difficulty when trying to decide between
-        some of the alternative rules.Specifically, if the current token is an identifier,
+        some of the alternative rules. Specifically, if the current token is an identifier,
         it must still distinguish between a variable, an array entry, and a subroutine call.
         The distinction can be made by looking ahead one extra token.A single look-ahead token,
         which may be one of “[“, “(“, “.”, suffices to distinguish between the three possibilities.
@@ -603,49 +644,54 @@ class CompilationEngine():
         """
 
         if self.tokenizer.token_type == "integerConstant":
-            self.vm_writer.write_push("constant", self.tokenizer.int_val)
+            self.vm_writer.write_push(Segment.CONSTANT, self.tokenizer.int_val)
             self.tokenizer.advance()
         elif self.tokenizer.token_type == "stringConstant":
             self._write_xml("<stringConstant> {} </stringConstant>\n".format(
                 self.tokenizer.string_val))
             self.tokenizer.advance()
-        elif self._is_keyword(CompilationEngine.KEYWORD_CONSTANT):
-            self.compile_keyword()
+        elif self._is_keyword(CompilationEngine.KEYWORD_CONSTANT):  # TODO is this.variable exist?
+            keyword_constant = self.get_keyword()
+            self.vm_writer.write_keyword_constant(keyword_constant)
         elif self._is_symbol("("):
-            self.skip_specified_symbol("(")
+            self.get_specified_symbol("(")
             self.compile_expression()
-            self.skip_specified_symbol(")")
-        elif self._is_symbol(CompilationEngine.UNARY_OP):
-            self.compile_given_symbol(self.tokenizer.symbol)
+            self.get_specified_symbol(")")
+        elif self._is_symbol(CompilationEngine.UnaryOp):
+            operator = self.get_specified_symbol(CompilationEngine.UnaryOp)
             self.compile_term()
+            self.vm_writer.write_arithmetic(CompilationEngine.UnaryOp[operator])
         elif self.tokenizer.token_type == "identifier":
-            self.compile_identifier()
-            if self._is_symbol("["):
-                self.compile_given_symbol("[")
+            identifier = self.get_identifier()
+            if self._is_symbol("["): # TODO
+                self.compile_given_symbol("[") 
                 self.compile_expression()
                 self.compile_given_symbol("]")
-            elif self._is_symbol("("):
+            elif self._is_symbol("("):  # TODO call this.method?
                 self.compile_given_symbol("(")
                 self.compile_expression_list()
                 self.compile_given_symbol(")")
-            elif self._is_symbol("."):
-                self.compile_given_symbol(".")
-                self.compile_identifier()
-                self.compile_given_symbol("(")
+            elif self._is_symbol("."):  # TODO call a class or object subroutine
+                self.get_specified_symbol(".")
+                subroutine_name = self.get_identifier()
+                self.get_specified_symbol("(")
                 self.compile_expression_list()
-                self.compile_given_symbol(")")
+                self.get_specified_symbol(")")
+                self._compile_term_class_or_object_subroutine_call(identifier, subroutine_name)
+            else:  # Just a single varName
+                self._compile_term_single_varname(identifier)
         else:
             raise Exception("Error term.")
 
-    def compile_expression_list(self) -> None:
+    def compile_expression_list(self) -> None:  # DONE
         """Compiles a (possible empty) comma-separated list of expression."""
         while not self._is_symbol(")"):
             self.compile_expression()
             self.argument_nums += 1
             if self._is_symbol(","):
-                self.skip_specified_symbol(",")
+                self.get_specified_symbol(",")
 
-    def compile_type(self) -> None:
+    def compile_type(self) -> None:  # DONE
         """Compile a type."""
         if self.tokenizer.token_type == "identifier":
             self.compile_identifier()
@@ -655,6 +701,19 @@ class CompilationEngine():
             self.compile_keyword()
         else:
             raise Exception("Current token is not a type!")
+
+    def _compile_subroutine_call(self, class_or_object_name: str, subroutine_name: str) -> None:
+        """Compile a class subroutine or a object subroutine. The token should at the expressionlist."""
+        var_type, var_kind, var_index = self._consult_symbol_table(class_or_object_name)
+        if var_type is None or var_kind is None or var_index is None:
+            is_function = True
+
+    def _compile_term_single_varname(self, varname: str) -> None:  # DONE
+        """Compile term that is the given single varname. Don't advance the tokenizer."""
+        _, var_kind, var_index = self._consult_symbol_table(varname)
+        if var_kind is None or var_index is None:
+            raise Exception("Can't find var {} in the symbol table!".format(varname))
+        self.vm_writer.write_push(var_kind.value, var_index)
 
     def compile_keyword(self):
         """Compile a Keyword"""
@@ -691,10 +750,12 @@ class CompilationEngine():
             self.tokenizer.identifier))
         self.tokenizer.advance()
 
-    def skip_specified_symbol(self, symbol: str) -> None:
-        """Skip the specified symbol."""
-        assert self.tokenizer.symbol == symbol
+    def get_specified_symbol(self, symbol: Union[str, Iterable[str]]) -> str:
+        """Return the specified symbol, and advanced the tokenizer."""
+        assert self.tokenizer.symbol == symbol or self.tokenizer.symbol in symbol
+        current_symbol = self.tokenizer.symbol
         self.tokenizer.advance()
+        return current_symbol
 
     def compile_given_symbol(self, symbol: str) -> None:  # TODO delete
         """Compile a symbol, make sure the symbol equals to the input."""
@@ -703,6 +764,19 @@ class CompilationEngine():
             symbol = JackAnalyzer.XML_token_convert[symbol]
         self._write_xml("<symbol> {} </symbol>\n".format(symbol))
         self.tokenizer.advance()
+
+    def _consult_symbol_table(self, varname:str) -> tuple[Union[str, None], Union[VarKind, None], Union[int, None]]:
+        """Consult the given varname in the symbol."""
+        var_type, var_kind, var_index = None, None, None
+        if varname in self.subroutine_symbol_table:
+            var_type = self.subroutine_symbol_table.type_of(varname)
+            var_kind = self.subroutine_symbol_table.kind_of(varname)
+            var_index = self.subroutine_symbol_table.index_of(varname)
+        elif varname in self.class_symbol_table:
+            var_type = self.class_symbol_table.type_of(varname)
+            var_kind = self.class_symbol_table.kind_of(varname)
+            var_index = self.class_symbol_table.index_of(varname)
+        return var_type, var_kind, var_index
 
     def _is_symbol(self, symbol: Union[str, Iterable[str]]) -> bool:
         """Return True if current token is the given symbol."""
