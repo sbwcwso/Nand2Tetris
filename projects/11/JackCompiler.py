@@ -10,8 +10,6 @@ from enum import Enum
 from typing import Dict, IO, List, NamedTuple, Tuple, Union, Iterable
 
 
-Segments = ["constant", "argument", "local", "static", "this", "that", "pointer", "temp"]
-
 class Segment(Enum):
     """The VM segments."""
     CONSTANT =  "constant"
@@ -23,10 +21,24 @@ class Segment(Enum):
     POINTER = "pointer"
     TEMP = "temp"
 
+
+class Arithmetic(Enum):
+    """The arithmetic commands"""
+    ADD = "add"
+    SUB = "sub"
+    AND = "and"
+    OR = "or"
+    LT = "lt"
+    GT = "gt"
+    EQ = "eq"
+    NEG = "neg"
+    NOT = "not"
+
+
 class VarKind(Enum):
     """The variable type."""
     STATIC = Segment.STATIC
-    FIELD = Segment.LOCAL
+    FIELD = Segment.THIS
     ARGUMENT = Segment.ARGUMENT
     VAR = Segment.LOCAL
 
@@ -35,7 +47,7 @@ class JackTokenizer():
     """A tokenizer.
 
     The tokenizer removes all comments and white space from the input stream and breaks it into Jack-
-    language tokens, as specified in the Jack grammar.   
+    language tokens, as specified in the Jack grammar.
     """
 
     Keywords = [
@@ -179,8 +191,8 @@ class JackTokenizer():
 
     @staticmethod
     def preprocessor(original_lines: List[str]) -> List[str]:
-        """Remove extra space and comments. 
-        
+        """Remove extra space and comments.
+
         Make sure there is a space around the symbol.
         """
         line_num = 0
@@ -259,6 +271,10 @@ class SymbolTable():
             VarKind.ARGUMENT: 0
         }
 
+    def get_varkind_nums(self, varkind: VarKind) -> int:
+        """Return the total nums of the given varkind"""
+        return self.indexes[varkind]
+
     def define(self, name: str, type: str, kind: VarKind)-> None:
         """Define(adds to the table) a new variable of the given name."""
         assert name not in self.items
@@ -266,7 +282,7 @@ class SymbolTable():
             type,
             kind,
             self.indexes[kind]
-        ) 
+        )
         self.indexes[kind] += 1
 
     def __contains__(self, el: str) -> bool:
@@ -274,7 +290,7 @@ class SymbolTable():
 
     def kind_of(self, name: str) -> Union[VarKind, None]:
         """Return the kind of the named identifier.
-        
+
         If the identifier is not found, returns None.
         """
         item = self.items.get(name, None)
@@ -282,15 +298,15 @@ class SymbolTable():
 
     def type_of(self, name: str) -> Union[str, None]:
         """Return the type of the named identifier.
-        
+
         If the identifier is not found, returns None.
         """
         item = self.items.get(name, None)
         return None if item is None else item.type
-    
+
     def index_of(self, name: str) -> Union[int, None]:
         """Return the index of the named identifier.
-        
+
         If the identifier is not found, returns None.
         """
         item = self.items.get(name, None)
@@ -299,7 +315,7 @@ class SymbolTable():
 
 class VMWriter():
     "A simple module that writes individual VM commands to the output .vm file."
-    
+
     def __init__(self, output_stream: IO):
         self.stream = output_stream
 
@@ -311,28 +327,27 @@ class VMWriter():
         """Writes a VM pop command."""
         self.stream.write("pop {} {}\n".format(segment.value, index))
 
-    def write_arithmetic(self, command: str) -> None:
+    def write_arithmetic(self, command: Arithmetic) -> None:
         """Writes a VM arithmetic-logical command."""
-        assert command in CompilationEngine.BinaryOpArithmetic.values() or command in CompilationEngine.UnaryOp.values()
-        self.stream.write("{}\n".format(command))
+        self.stream.write("{}\n".format(command.value))
 
     def write_label(self, label_name: str) -> None:
         """Writes a VM label command."""
-        self.stream.write("label {}".format(label_name))
+        self.stream.write("label {}\n".format(label_name))
 
     def write_goto(self, label_name: str) -> None:
         """Writes a VM goto command."""
-        self.stream.write("goto {}".format(label_name))
+        self.stream.write("goto {}\n".format(label_name))
 
     def write_if(self, label_name: str) -> None:
         """Writes a VM if-goto command"""
-        self.stream.write("if-goto {}".format(label_name))
+        self.stream.write("if-goto {}\n".format(label_name))
 
     def write_call(self, name: str, var_nums: int) -> None:
         """Writes a VM call command."""
         self.stream.write("call {} {}\n".format(name, var_nums))
 
-    def write_function(self, name: str, n_vars: int) -> None: 
+    def write_function(self, name: str, n_vars: int) -> None:
         """Writes a VM function command."""
         self.stream.write("function {} {}\n".format(name, n_vars))
 
@@ -343,14 +358,22 @@ class VMWriter():
     def write_keyword_constant(self, keyword_constant: str) -> None:
         """Writes a given VM keyword constant."""
         if keyword_constant == "true":
-            self.write_push(Segment.CONSTANT, 1)
-            self.write_arithmetic("neg")
+            self.write_push(Segment.CONSTANT, 0)
+            self.write_arithmetic(Arithmetic.NOT)
         elif keyword_constant == "false" or keyword_constant == "null":
             self.write_push(Segment.CONSTANT, 0)
         elif keyword_constant == "this":  # TODO need to be make sure
             self.write_push(Segment.POINTER, 0)
         else:
             raise Exception("No handle program for {}.".format(keyword_constant))
+
+    def write_string_constant(self, string: str) -> None:
+        """Writes a given StringConstant"""
+        self.write_push(Segment.CONSTANT, len(string))
+        self.write_call("String.new", 1)
+        for char in string:
+            self.write_push(Segment.CONSTANT, ord(char))
+            self.write_call("String.appendChar", 2)
 
 
 class CompilationEngine():
@@ -364,17 +387,17 @@ class CompilationEngine():
 
     OP = [ "+", "-", "*", "/", "&", "|", "<", ">", "="]
     BinaryOpArithmetic = {
-        "+": "add",
-        "-": "sub", 
-        "&": "and", 
-        "|": "or", 
-        "<": "lt",
-        ">": "gt", 
-        "=": "eq",
+        "+": Arithmetic.ADD,
+        "-": Arithmetic.SUB,
+        "&": Arithmetic.AND,
+        "|": Arithmetic.OR,
+        "<": Arithmetic.LT,
+        ">": Arithmetic.GT,
+        "=": Arithmetic.EQ,
         }
     UnaryOp = {
-        "-": "neg", 
-        "~": "not"
+        "-": Arithmetic.NEG,
+        "~": Arithmetic.NOT
         }
     KEYWORD_CONSTANT = ["true", "false", "null", "this"]
 
@@ -393,7 +416,7 @@ class CompilationEngine():
 
         self.subroutine_name: str = ""
         self.subroutine_type: str = ""
-        self.subroutine_arg_nums: int = 0
+        self.local_var_nums: int = 0
         self.while_index:int = 0
         self.if_index:int = 0
 
@@ -422,26 +445,27 @@ class CompilationEngine():
         while self._is_keyword(["constructor", "function", "method"]):
             self.compile_subroutine()
 
-
         assert self.tokenizer.symbol == "}"
 
     def compile_class_var_dec(self) -> None:
         """Compiles a static declaration or a field declaration."""
-        self._write_xml("<classVarDec>\n")
-        self.indent_level += 1
-        assert self._is_keyword(["static", "field"])
 
-        self.compile_keyword()
-        self.compile_type()
-        self.compile_identifier()
+        var_kind_str =  self.get_keyword()
+        if var_kind_str == "static":
+            var_kind = VarKind.STATIC
+        elif var_kind_str == "field":
+            var_kind = VarKind.FIELD
+        else:
+            raise Exception("Unsupport var kind {}".format(var_kind_str))
+        var_type = self.get_type()
+        var_name = self.get_identifier()
+        self.class_symbol_table.define(var_name, var_type, var_kind)
         while self._is_symbol(","):
-            self.compile_given_symbol(",")
-            self.compile_identifier()
+            self.get_specified_symbol(",")
+            var_name = self.get_identifier()
+            self.class_symbol_table.define(var_name, var_type, var_kind)
 
-        self.compile_given_symbol(";")
-
-        self.indent_level -= 1
-        self._write_xml("</classVarDec>\n")
+        self.get_specified_symbol(";")
 
     def compile_subroutine(self) -> None:  # DOING
         """Compiles a complete method, function or constructor."""
@@ -449,36 +473,49 @@ class CompilationEngine():
 
         self.subroutine_name = ""
         self.subroutine_type = ""
-        self.subroutine_arg_nums = 0
+        self.local_var_nums = 0
         self.while_index = 0
         self.if_index = 0
 
         self.subroutine_type = self.get_keyword()
         assert self.subroutine_type in ["constructor", "function", "method"]
-        
+
         if self._is_keyword("void"):
             self.get_keyword()
         else:
             self.get_type()
-            
+
         self.subroutine_name = "{}.{}".format(self.class_name, self.get_identifier())
 
+
+        if self.subroutine_type == "method":
+            self.subroutine_symbol_table.define("this", self.class_name, VarKind.ARGUMENT)
+
         self.get_specified_symbol("(")
-        self.compile_parameter_list()  # No VM write here
+        # No VM write here, but will add argumnet to the self.subroutine_symbol_table
+        self.compile_parameter_list()
         self.get_specified_symbol(")")
 
         self.get_specified_symbol("{")
 
         while self._is_keyword("var"):
-            self.compile_var_dec()  # NO VM write here
+            # NO VM write here, but will update the self.local_var_nums
+            self.compile_var_dec()
 
-        self.vm_writer.write_function(self.subroutine_name, self.subroutine_arg_nums)
+        self.vm_writer.write_function(self.subroutine_name, self.local_var_nums)
 
-        if self.subroutine_type == "method": 
+        if self.subroutine_type == "method":
             # Set this to the first argument
             self.vm_writer.write_push(Segment.ARGUMENT, 0)
             self.vm_writer.write_pop(Segment.POINTER, 0)
-            
+        elif self.subroutine_type == "constructor":
+            # call Memory.alloc to alloc memory from the new object, and set the return address to this
+            field_nums = self.class_symbol_table.get_varkind_nums(VarKind.FIELD)
+            self.vm_writer.write_push(Segment.CONSTANT, field_nums)
+            self.vm_writer.write_call("Memory.alloc", 1)
+            self.vm_writer.write_pop(Segment.POINTER, 0)
+
+
         self.compile_statements()
 
         self.get_specified_symbol("}")
@@ -486,7 +523,6 @@ class CompilationEngine():
     def compile_parameter_list(self) -> None:  # DONE
         """Compiles a (possibly empty) parameter list, not including the enclosing '()'."""
         while not self._is_symbol(")"):
-            self.subroutine_arg_nums += 1
             type = self.get_type()
             identifier = self.get_identifier()
             self.subroutine_symbol_table.define(identifier, type, VarKind.ARGUMENT)
@@ -499,11 +535,13 @@ class CompilationEngine():
         type = self.get_type()
         identifier = self.get_identifier()
         self.subroutine_symbol_table.define(identifier, type, VarKind.VAR)
+        self.local_var_nums += 1
 
         while self._is_symbol(","):
             self.get_specified_symbol(",")
             identifier = self.get_identifier()
             self.subroutine_symbol_table.define(identifier, type, VarKind.VAR)
+            self.local_var_nums += 1
 
         self.get_specified_symbol(";")
 
@@ -514,70 +552,69 @@ class CompilationEngine():
 
     def compile_do(self) -> None:  # TODO handle method call
         """Compiles a do statement."""
-        callee_name = ""
         assert self._is_keyword("do")
         self.get_keyword()
 
-        callee_name = self.get_identifier()
-        if callee_name in self.class_symbol_table or callee_name in self.subroutine_symbol_table:
-            self.argument_nums = 1  # callee is a method
-        else:
-            self.argument_nums = 0  # callee is a function or constructor
+        module_name = self.get_identifier()
 
         if self._is_symbol("."):
             self.get_specified_symbol(".")
-            callee_name = callee_name + "." + self.get_identifier()
+            subroutine_name = self.get_identifier()
+        else:  # The subroutine call without dot is always call current object's method
+            subroutine_name = module_name
+            module_name = "this"
 
-        self.get_specified_symbol("(")
-        self.compile_expression_list()
-        self.get_specified_symbol(")")
+        self._compile_subroutine_call(module_name, subroutine_name)
         self.get_specified_symbol(";")
-        
-        self.vm_writer.write_call(callee_name, self.argument_nums)
-        self.vm_writer.write_pop(Segment.TEMP, 0)  # TODO Make sure if do statement is always void function
+        self.vm_writer.write_pop(Segment.TEMP, 0)  # do statement will not use it's return value
 
-    def compile_let(self) -> None:
+    def compile_let(self) -> None:  # TODO
         """Compiles a let statement."""
 
         assert self.get_keyword() == "let"
-
         var_name = self.get_identifier()
-        index = self.subroutine_symbol_table.index_of(var_name)
-        assert index is not None
 
         if self._is_symbol("["):
-            raise Exception("Need to be done")  # TODO Need to handle.
-            # self.compile_given_symbol("[")
-            # self.compile_expression()
-            # self.compile_given_symbol("]")
-        
-        self.get_specified_symbol("=")
-        self.compile_expression()
+            # left side is a array
+            self._compile_array_address(var_name)
+            self.get_specified_symbol("=")
+            self.compile_expression()
+            self.vm_writer.write_pop(Segment.TEMP, 0)
+            self.vm_writer.write_pop(Segment.POINTER, 1)
+            self.vm_writer.write_push(Segment.TEMP, 0)
+            self.vm_writer.write_pop(Segment.THAT, 0)
+        else:
+            var_type, var_kind, var_index = self._consult_symbol_table(var_name)
+            assert var_type is not None and var_kind is not None and var_index is not None
+            self.get_specified_symbol("=")
+            self.compile_expression()
+            self.vm_writer.write_pop(var_kind.value, var_index)
+
         self.get_specified_symbol(";")
 
-        self.vm_writer.write_pop(Segment.LOCAL, index)
 
     def compile_while(self) -> None:
         """Compiles a while statement."""
-
+        ex_label = "WHILE_EXP{}".format(self.while_index)
+        end_label = "WHILE_END{}".format(self.while_index)
+        self.while_index += 1
         assert self._is_keyword("while")
         self.get_keyword()
 
-        self.vm_writer.write_label("WHILE_EX{}".format(self.while_index))
+        self.vm_writer.write_label(ex_label)
         self.get_specified_symbol("(")
         self.compile_expression()
         self.get_specified_symbol(")")
 
-        self.vm_writer.write_arithmetic("not")
-        self.vm_writer.write_if("WHILE_END{}".format(self.while_index))
+        self.vm_writer.write_arithmetic(Arithmetic.NOT)
+        self.vm_writer.write_if(end_label)
 
         self.get_specified_symbol("{")
         self.compile_statements()
         self.get_specified_symbol("}")
 
-        self.vm_writer.write_goto("WHILE_EX{}".format(self.while_index))
-        self.vm_writer.write_label("WHILE_END{}".format(self.while_index))
-        self.while_index += 1
+        self.vm_writer.write_goto(ex_label)
+        self.vm_writer.write_label(end_label)
 
     def compile_return(self) -> None:
         """Compiles a return statement."""
@@ -589,34 +626,44 @@ class CompilationEngine():
             self.compile_expression()
         else:
             self.vm_writer.write_push(Segment.CONSTANT, 0)
-        
+
         self.vm_writer.write_return()
         self.get_specified_symbol(";")
 
-    def compile_if(self) -> None:
+    def compile_if(self) -> None:  # DONE
         """Compiles an if statement, possibly with a trailing else clause."""
-        self._write_xml("<ifStatement>\n")
-        self.indent_level += 1
+        assert self.get_keyword() == "if"
 
-        assert self._is_keyword("if")
-        self.compile_keyword()
+        label_true = "IF_TRUE{}".format(self.if_index)
+        label_false = "IF_FALSE{}".format(self.if_index)
+        label_end = "IF_END{}".format(self.if_index)
+        self.if_index += 1
 
-        self.compile_given_symbol("(")
+        self.get_specified_symbol("(")
         self.compile_expression()
-        self.compile_given_symbol(")")
+        self.get_specified_symbol(")")
 
-        self.compile_given_symbol("{")
+        self.vm_writer.write_if(label_true)
+        self.vm_writer.write_goto(label_false)
+
+        self.vm_writer.write_label(label_true)
+        self.get_specified_symbol("{")
         self.compile_statements()
-        self.compile_given_symbol("}")
+        self.get_specified_symbol("}")
 
         if (self._is_keyword("else")):
-            self.compile_keyword()
-            self.compile_given_symbol("{")
-            self.compile_statements()
-            self.compile_given_symbol("}")
+            self.vm_writer.write_goto(label_end)  # If there is no else, this goto is not needed
 
-        self.indent_level -= 1
-        self._write_xml("</ifStatement>\n")
+            self.vm_writer.write_label(label_false)
+            self.get_keyword()
+            self.get_specified_symbol("{")
+            self.compile_statements()
+            self.get_specified_symbol("}")
+
+            self.vm_writer.write_label(label_end)  # If there is no else, this label is not needed
+        else:
+            self.vm_writer.write_label(label_false)
+
 
     def compile_expression(self) -> None:
         """Compiles an expression."""
@@ -640,15 +687,15 @@ class CompilationEngine():
         it must still distinguish between a variable, an array entry, and a subroutine call.
         The distinction can be made by looking ahead one extra token.A single look-ahead token,
         which may be one of “[“, “(“, “.”, suffices to distinguish between the three possibilities.
-        Any other token is not part of this term and should not be advanced over. 
+        Any other token is not part of this term and should not be advanced over.
         """
 
         if self.tokenizer.token_type == "integerConstant":
             self.vm_writer.write_push(Segment.CONSTANT, self.tokenizer.int_val)
             self.tokenizer.advance()
         elif self.tokenizer.token_type == "stringConstant":
-            self._write_xml("<stringConstant> {} </stringConstant>\n".format(
-                self.tokenizer.string_val))
+            string = self.tokenizer.string_val
+            self.vm_writer.write_string_constant(string)
             self.tokenizer.advance()
         elif self._is_keyword(CompilationEngine.KEYWORD_CONSTANT):  # TODO is this.variable exist?
             keyword_constant = self.get_keyword()
@@ -663,21 +710,16 @@ class CompilationEngine():
             self.vm_writer.write_arithmetic(CompilationEngine.UnaryOp[operator])
         elif self.tokenizer.token_type == "identifier":
             identifier = self.get_identifier()
-            if self._is_symbol("["): # TODO
-                self.compile_given_symbol("[") 
-                self.compile_expression()
-                self.compile_given_symbol("]")
-            elif self._is_symbol("("):  # TODO call this.method?
-                self.compile_given_symbol("(")
-                self.compile_expression_list()
-                self.compile_given_symbol(")")
-            elif self._is_symbol("."):  # TODO call a class or object subroutine
+            if self._is_symbol("["): # get value form the array
+                self._compile_array_address(identifier)
+                self.vm_writer.write_pop(Segment.POINTER, 1)
+                self.vm_writer.write_push(Segment.THAT, 0)
+            elif self._is_symbol("("):  # call this.method
+                self._compile_subroutine_call("this", identifier)
+            elif self._is_symbol("."):  # DONE
                 self.get_specified_symbol(".")
                 subroutine_name = self.get_identifier()
-                self.get_specified_symbol("(")
-                self.compile_expression_list()
-                self.get_specified_symbol(")")
-                self._compile_term_class_or_object_subroutine_call(identifier, subroutine_name)
+                self._compile_subroutine_call(identifier, subroutine_name)
             else:  # Just a single varName
                 self._compile_term_single_varname(identifier)
         else:
@@ -701,12 +743,30 @@ class CompilationEngine():
             self.compile_keyword()
         else:
             raise Exception("Current token is not a type!")
+    
+    def _compile_subroutine_call(self, module_name: str, subroutine_name: str) -> None:
+        """Compile a class subroutine or a object subroutine. The token should start at the `(`, and eat the corresponding `)`"""
 
-    def _compile_subroutine_call(self, class_or_object_name: str, subroutine_name: str) -> None:
-        """Compile a class subroutine or a object subroutine. The token should at the expressionlist."""
-        var_type, var_kind, var_index = self._consult_symbol_table(class_or_object_name)
-        if var_type is None or var_kind is None or var_index is None:
-            is_function = True
+        if module_name == "this":
+            self.argument_nums = 1
+            class_name = self.class_name
+            self.vm_writer.write_push(Segment.POINTER, 0)
+        else:
+            var_type, var_kind, var_index = self._consult_symbol_table(module_name)
+            if var_type is None or var_kind is None or var_index is None:
+                is_method = False
+                self.argument_nums = 0
+                class_name = module_name
+            else:
+                self.argument_nums = 1
+                class_name = var_type
+                self.vm_writer.write_push(var_kind.value, var_index)
+
+        self.get_specified_symbol("(")
+        self.compile_expression_list()
+        self.get_specified_symbol(")")
+
+        self.vm_writer.write_call("{}.{}".format(class_name, subroutine_name), self.argument_nums) # TODO
 
     def _compile_term_single_varname(self, varname: str) -> None:  # DONE
         """Compile term that is the given single varname. Don't advance the tokenizer."""
@@ -714,6 +774,16 @@ class CompilationEngine():
         if var_kind is None or var_index is None:
             raise Exception("Can't find var {} in the symbol table!".format(varname))
         self.vm_writer.write_push(var_kind.value, var_index)
+
+    def _compile_array_address(self, var_name) -> None:
+        """Push the array address into the stack, The token should start at `[`, after calling this function, the corresponding `]` will be consumed."""
+        var_type, var_kind, var_index = self._consult_symbol_table(var_name)
+        assert var_type is not None and var_kind is not None and var_index is not None
+        self.get_specified_symbol("[")
+        self.compile_expression()
+        self.get_specified_symbol("]")
+        self.vm_writer.write_push(var_kind.value, var_index)
+        self.vm_writer.write_arithmetic(Arithmetic.ADD)
 
     def compile_keyword(self):
         """Compile a Keyword"""
@@ -799,7 +869,7 @@ class CompilationEngine():
 
 class JackAnalyzer():
     """A main driver that organizes and invokes everything.
-    
+
     Used in project 10, not used in this project
     """
 
@@ -828,13 +898,13 @@ class JackAnalyzer():
         assert self.jack_files
         self.output_path = os.path.join(self.base_fold, "output")
         os.makedirs(self.output_path, exist_ok=True)
-        
+
     def get_vm_file_name(self, jack_file: str) -> str:
         """Return the vm file name of the given jack_file path."""
         jack_file_name_without_extension = os.path.splitext(
             os.path.basename(jack_file))[0]
         return os.path.join(self.base_fold, jack_file_name_without_extension + ".vm")
-    
+
     def generate_vm_file(self) -> None:
         """Generate the corresponding vm file for each jack file."""
         for jack_file in self.jack_files:
@@ -847,7 +917,7 @@ class JackAnalyzer():
                     compilation_engine.compile_class()
                     assert compilation_engine.tokenizer.has_more_tokens() is False
             print("Generating vm file for {} at {} success.".format(jack_file, vm_file))
-        
+
 
     def get_output_file_name(self, jack_file: str) -> Tuple[str, str, str, str]:
         """Return the tokenizer xml file path and the analyzer output file path of the input jack_file path"""
@@ -964,13 +1034,13 @@ class JackCompiler():
         else:
             raise Exception("Must input a jack file or a directory.")
         assert self.jack_files
-        
+
     def get_vm_file_name(self, jack_file: str) -> str:
         """Return the vm file name of the given jack_file path."""
         jack_file_name_without_extension = os.path.splitext(
             os.path.basename(jack_file))[0]
         return os.path.join(self.base_fold, jack_file_name_without_extension + ".vm")
-    
+
     def generate_vm_files(self) -> None:
         """Generate the corresponding vm file for each jack file."""
         for jack_file in self.jack_files:
@@ -983,9 +1053,8 @@ class JackCompiler():
                     compilation_engine.compile_class()
                     assert compilation_engine.tokenizer.has_more_tokens() is False
             print("Generating vm file for {} at {} success.".format(jack_file, vm_file))
-        
+
 
 if __name__ == "__main__":
     assert len(sys.argv) == 2
     JackCompiler(sys.argv[1]).generate_vm_files()
-
