@@ -16,7 +16,12 @@ class Array {
 
     /** Constructs a new Array of the given size. */
     function Array new(int size) {
-        return Memory.alloc(size);  // TODO handle the situation if Memory.alloc return null
+        var Array arr;
+        let arr = Memory.alloc(size);  // DONE handle the situation if Memory.alloc return null
+        if (arr = null) {
+            do Sys.error(1);
+        }
+        return arr;
     }
 
     /** Disposes this array. */
