@@ -725,13 +725,15 @@ class CompilationEngine():
         else:
             raise Exception("Error term.")
 
-    def compile_expression_list(self) -> None:  # DONE
+    def compile_expression_list(self) -> int:  # DONE
         """Compiles a (possible empty) comma-separated list of expression."""
+        argument_nums = 0
         while not self._is_symbol(")"):
             self.compile_expression()
-            self.argument_nums += 1
+            argument_nums += 1
             if self._is_symbol(","):
                 self.get_specified_symbol(",")
+        return argument_nums
 
     def compile_type(self) -> None:  # DONE
         """Compile a type."""
@@ -748,25 +750,25 @@ class CompilationEngine():
         """Compile a class subroutine or a object subroutine. The token should start at the `(`, and eat the corresponding `)`"""
 
         if module_name == "this":
-            self.argument_nums = 1
+            argument_nums = 1
             class_name = self.class_name
             self.vm_writer.write_push(Segment.POINTER, 0)
         else:
             var_type, var_kind, var_index = self._consult_symbol_table(module_name)
             if var_type is None or var_kind is None or var_index is None:
                 is_method = False
-                self.argument_nums = 0
+                argument_nums = 0
                 class_name = module_name
             else:
-                self.argument_nums = 1
+                argument_nums = 1
                 class_name = var_type
                 self.vm_writer.write_push(var_kind.value, var_index)
 
         self.get_specified_symbol("(")
-        self.compile_expression_list()
+        argument_nums += self.compile_expression_list()
         self.get_specified_symbol(")")
 
-        self.vm_writer.write_call("{}.{}".format(class_name, subroutine_name), self.argument_nums) # TODO
+        self.vm_writer.write_call("{}.{}".format(class_name, subroutine_name), argument_nums)
 
     def _compile_term_single_varname(self, varname: str) -> None:  # DONE
         """Compile term that is the given single varname. Don't advance the tokenizer."""
