@@ -10,34 +10,203 @@
  * the screen is indexed (0,0).
  */
 class Screen {
+    static int baseAddress;   // include
+    static int endAddress;    // exclude
+    static boolean isBlack;
+    static Array twoToThe;
 
     /** Initializes the Screen. */
     function void init() {
+        let baseAddress = 16384;
+        let endAddress = 24576;
+        let isBlack = true;
+
+        let twoToThe = Array.new(16);
+        let twoToThe[0] = 1;      let twoToThe[1] = 2;      let twoToThe[2] = 4;
+        let twoToThe[3] = 8;      let twoToThe[4] = 16;     let twoToThe[5] = 32;
+        let twoToThe[6] = 64;     let twoToThe[7] = 128;    let twoToThe[8] = 256;
+        let twoToThe[9] = 512;    let twoToThe[10] = 1024;  let twoToThe[11] = 2048;
+        let twoToThe[12] = 4096;  let twoToThe[13] = 8192;  let twoToThe[14] = 16384;
+        let twoToThe[15] = twoToThe[14] + twoToThe[14];
+
+        return;
     }
 
     /** Erases the entire screen. */
     function void clearScreen() {
+        var int addr;
+        let addr = baseAddress;
+        while (addr < endAddress) {
+            do Memory.poke(addr, 0);
+            let addr = addr + 1;
+        }
+
+        return;
     }
 
     /** Sets the current color, to be used for all subsequent drawXXX commands.
      *  Black is represented by true, white by false. */
     function void setColor(boolean b) {
+        let isBlack = b;
+        return;
     }
 
     /** Draws the (x,y) pixel, using the current color. */
     function void drawPixel(int x, int y) {
+        var int addr, value, i, xDiv16;
+
+        let xDiv16 = x / 16;
+        let addr = baseAddress + (32 * y) + xDiv16;
+        let value = Memory.peek(addr);
+        let i = x - (16 * xDiv16);
+        if (isBlack) {
+            let value = value | twoToThe[i];
+        } else {
+            let value = value & (~(twoToThe[i]));
+        }
+
+        do Memory.poke(addr, value);
+        
+        return;
     }
 
     /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
     function void drawLine(int x1, int y1, int x2, int y2) {
+        var int dx, dy, a, b, tmp, i, diff, dxPlus1, dyPlus1;
+        let dx = x2 - x1;
+        let dy = y2 - y1;
+
+        // Draw a pixel
+        if ((dx = 0) & (dy = 0)) {
+            do Screen.drawPixel(x1, y1);
+            return;
+        }
+
+        // Draw vertical lines
+        if (dx = 0) {
+            // Make sure y1 < y2
+            if (dy < 0) {
+                let tmp = y1; let y1 = y2; let y2 = tmp;
+            }
+            let i = y1;
+            while (i < y2) {
+                do Screen.drawPixel(x1, i);
+                let i = i + 1;
+            }
+            do Screen.drawPixel(x1, i);  // i = y2
+            return;
+        }
+
+        
+        // Draw horizontal lines
+        if (dy = 0) {
+            // Make sure x1 < x2
+            if (dx < 0) {
+                let tmp = x1; let x1 = x2; let x2 = tmp;
+            }
+            let i = x1;
+            while (i < x2) {
+                do Screen.drawPixel(i, y1);
+                let i = i + 1;
+            }
+            do Screen.drawPixel(i, y1);  // i = x2
+            return;
+        }
+
+        // Draw other lines
+        let a = 0; let b = 0; let diff = 0;
+
+        if ((dx > 0) & (dy > 0)) {
+            let dxPlus1 = dx + 1; let dyPlus1 = dy + 1;
+            while ((a < dxPlus1) & (b < dyPlus1)) {
+                do Screen.drawPixel(x1 + a, y1 + b);
+                if (diff < 0) {
+                    let a = a + 1;
+                    let diff = diff + dy;
+                } else {
+                    let b = b + 1;
+                    let diff = diff - dx;
+                }
+            }
+            return;
+        }
+
+        if ((dx < 0) & (dy < 0)) {
+            let dx = -dx; let dy = -dy;
+            let dxPlus1 = dx + 1; let dyPlus1 = dy + 1;
+            while ((a < dxPlus1) & (b < dyPlus1)) {
+                do Screen.drawPixel(x1 - a, y1 - b);
+                if (diff < 0) {
+                    let a = a + 1;
+                    let diff = diff + dy;
+                } else {
+                    let b = b + 1;
+                    let diff = diff - dx;
+                }
+            }
+            return;
+        }
+
+        if ((dx > 0) & (dy < 0)) {
+            let dy = -dy;
+            let dxPlus1 = dx + 1; let dyPlus1 = dy + 1;
+            while ((a < dxPlus1) & (b < dyPlus1)) {
+                do Screen.drawPixel(x1 + a, y1 - b);
+                if (diff < 0) {
+                    let a = a + 1;
+                    let diff = diff + dy;
+                } else {
+                    let b = b + 1;
+                    let diff = diff - dx;
+                }
+            }
+            return;
+        }
+
+        if ((dx < 0) & (dy > 0)) {
+            let dx = -dx;
+            let dxPlus1 = dx + 1; let dyPlus1 = dy + 1;
+            while ((a < dxPlus1) & (b < dyPlus1)) {
+                do Screen.drawPixel(x1 - a, y1 + b);
+                if (diff < 0) {
+                    let a = a + 1;
+                    let diff = diff + dy;
+                } else {
+                    let b = b + 1;
+                    let diff = diff - dx;
+                }
+            }
+            return;
+        }
+        return;
     }
 
     /** Draws a filled rectangle whose top left corner is (x1, y1)
      * and bottom right corner is (x2,y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
+        var int y, y2Plus1;
+        let y = y1;
+        let y2Plus1 = y2 + 1;
+        while (y < y2Plus1) {
+            do Screen.drawLine(x1, y, x2, y);
+            let y = y + 1;
+        }
+
+        return;
     }
 
     /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
     function void drawCircle(int x, int y, int r) {
+        var int dy, rPlus1, halfChordLength, rSquare, yPlusdy;
+        let dy = -r;
+        let rPlus1 = r + 1;
+        let rSquare = r * r;
+        while(dy < rPlus1) {
+            let halfChordLength = Math.sqrt(rSquare - (dy * dy));
+            let yPlusdy = y + dy;
+            do Screen.drawLine(x - halfChordLength, yPlusdy, x + halfChordLength, yPlusdy);
+            let dy = dy + 1;
+        }
+        return;
     }
 }

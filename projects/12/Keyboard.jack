@@ -7,9 +7,12 @@
  * A library for handling user input from the keyboard.
  */
 class Keyboard {
-
+    static int keyboardMemoryMap;
+    
     /** Initializes the keyboard. */
     function void init() {
+        let keyboardMemoryMap = 24576;
+        return;
     } 
 
     /**
@@ -18,7 +21,7 @@ class Keyboard {
      *
      * Recognizes all ASCII characters, as well as the following keys:
      * new line = 128 = String.newline()
-     * backspace = 129 = String.backspace()
+     * backspace = 129 = String.backSpace()
      * left arrow = 130
      * up arrow = 131
      * right arrow = 132
@@ -33,6 +36,7 @@ class Keyboard {
      * F1 - F12 = 141 - 152
      */
     function char keyPressed() {
+        return Memory.peek(keyboardMemoryMap);
     }
 
     /**								
@@ -41,6 +45,24 @@ class Keyboard {
      * of the pressed key.
      */
     function char readChar() {
+        var char c, isReleased;
+
+        // wait until a key is pressed
+        do Output.printChar(0);
+        let c = Keyboard.keyPressed();
+        while (c = 0) {
+            let c = Keyboard.keyPressed();
+        }
+
+        // wait unit a key is released
+        let isReleased = Keyboard.keyPressed();
+        while (~(isReleased = 0)) {
+            let isReleased = Keyboard.keyPressed();
+        }
+        
+        do Output.backSpace();
+        do Output.printChar(c);
+        return c;
     }
 
     /**								
@@ -49,6 +71,27 @@ class Keyboard {
      * and returns its value. Also handles user backspaces.
      */
     function String readLine(String message) {
+        var String str;
+        var char c;
+
+        do Output.printString(message);
+        let str = String.new(80);  // TODO Need to handle overflow.
+        while (true) {
+            let c = Keyboard.readChar();
+            if (c = String.newLine()) {
+                // do Output.println();  // already output newLine in readChar
+                return str;
+            }
+
+            if (c = String.backSpace()) {
+                do str.eraseLastChar();
+                // do Output.backSpace();  // already ouput backSpace in readChar
+            } else {
+                do str.appendChar(c);
+            }
+        }
+
+        return str;
     }   
 
     /**								
@@ -58,5 +101,10 @@ class Keyboard {
      * entered text is detected). Also handles user backspaces. 
      */
     function int readInt(String message) {
+        var String str;
+
+        do Output.printString(message);
+        let str = Keyboard.readLine("");
+        return str.intValue();
     }
 }

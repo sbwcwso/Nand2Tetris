@@ -18,9 +18,17 @@ class Output {
 
     // Character map for displaying characters
     static Array charMaps; 
+    static int iCursor, jCursor;  // Current cursor
+    static int low8BitsAllOne, high8BitsAllOne;
 
     /** Initializes the screen, and locates the cursor at the screen's top-left. */
     function void init() {
+        let low8BitsAllOne = 255;  
+        let high8BitsAllOne = (-1) - low8BitsAllOne;
+        do Screen.init();
+        do Output.initMap();
+        do Output.moveCursor(0, 0);
+        return;
     }
 
     // Initializes the character map array
@@ -71,7 +79,7 @@ class Output {
         do Output.create(64,30,51,51,59,59,59,27,3,30,0,0);  // @
         do Output.create(63,30,51,51,24,12,12,0,12,12,0,0);  // ?
 
-        do Output.create(65,0,0,0,0,0,0,0,0,0,0,0);          // A ** TO BE FILLED **
+        do Output.create(65,12,30,51,51,63,51,51,51,51,0,0); // A
         do Output.create(66,31,51,51,51,31,51,51,51,31,0,0); // B
         do Output.create(67,28,54,35,3,3,3,35,54,28,0,0);    // C
         do Output.create(68,15,27,51,51,51,51,51,27,15,0,0); // D
@@ -175,29 +183,121 @@ class Output {
 
     /** Moves the cursor to the j-th column of the i-th row,
      *  and erases the character displayed there. */
-    function void moveCursor(int i, int j) {
+    function void moveCursor(int i, int j) {  // TODO Whether it is necessary to judge whether the subscript is legal
+        let iCursor = i;
+        let jCursor = j;
+        do Output.printCharWithoutAdvance(32);  // earses the character displayed there
+        return;
+    }
+
+    /** Displays the given character at the cursor location */
+    function void printCharWithoutAdvance(char c) {
+        var int i, address, value;
+        var Array charMap;
+
+        let charMap = Output.getMap(c);
+        let address = 16384 + (32 * 11 * iCursor) + ((8 * jCursor) / 16);
+        let i = 0;
+        if ((jCursor & 1) = 0) {           // j % 2 == 0  
+            // Need to set the lower 8 bits of value
+            while (i < 11) {
+                let value = Memory.peek(address);
+                let value = value & high8BitsAllOne;           // value & 1111111100000000 set the lower 8 bits of value to zero
+                let value = value | charMap[i];                        // set the lower 8 bits of value to charMap[i]
+
+                do Memory.poke(address, value);
+                let address = address + 32;
+                let i = i + 1;
+            }
+        }
+        else {
+            while (i < 11) {
+                // Need to set the upper 8 bits of value
+                let value = Memory.peek(address);
+                let value = value & low8BitsAllOne;            // value & 0000000011111111 set the upper 8 bits of value to zero
+                let value = value | (charMap[i] * 256);  // set the upper 8 bits of value to charMap[i]
+
+                do Memory.poke(address, value);
+                let address = address + 32;
+                let i = i + 1;
+            }
+        }
+        
+        return;
     }
 
     /** Displays the given character at the cursor location,
      *  and advances the cursor one column forward. */
     function void printChar(char c) {
+        if (c = String.newLine()) {
+            do Output.println();
+            return;
+        }
+        if (c = String.backSpace()) {
+            do Output.backSpace();
+            return;
+        }
+        do Output.printCharWithoutAdvance(c);
+        let jCursor = jCursor + 1;
+        if (jCursor > 63) {
+            // new Line
+            let jCursor = 0;
+            let iCursor = iCursor + 1;
+            if (iCursor > 22) {
+                let iCursor = 0;
+            }
+        }
+        do Output.moveCursor(iCursor, jCursor);
+        return;
     }
 
     /** displays the given string starting at the cursor location,
      *  and advances the cursor appropriately. */
     function void printString(String s) {
+        var int i, length;
+        let i = 0;
+        let length = s.length();
+        while (i < length) {
+            do Output.printChar(s.charAt(i));
+            let i = i + 1;
+        }
+
+        return;
     }
 
     /** Displays the given integer starting at the cursor location,
      *  and advances the cursor appropriately. */
     function void printInt(int i) {
+        var String s;
+        let s = String.new(6);  // The longest value is "-32768"(2^15)
+        do s.setInt(i);
+        do Output.printString(s);
+
+        return;
     }
 
     /** Advances the cursor to the beginning of the next line. */
     function void println() {
+        let jCursor = 0;
+        let iCursor = iCursor + 1;
+        if (iCursor > 22) {
+            let iCursor = 0;  // Error: Cursor out of screen
+        }
+        do Output.moveCursor(iCursor, jCursor);
+        return;
     }
 
     /** Moves the cursor one column back. */
     function void backSpace() {
+        let jCursor = jCursor - 1;
+        if (jCursor < 0) {
+            let jCursor = 63;
+            let iCursor = iCursor - 1;
+            if (iCursor < 0) {
+                let iCursor = 22;  // Error: Cursor out of screen
+            }
+        }
+        do Output.moveCursor(iCursor, jCursor);
+        return;
     }
 }
