@@ -9,6 +9,7 @@
  */
 class Math {
     static Array twoToThe;
+    static int divideSum;
 
     /** Initializes the library. */
     function void init() {
@@ -58,19 +59,19 @@ class Math {
     }
 
     /** Helper function of divide, where x >= 0 and y > 0 unless y is overflow during recursion. */
-    function int divideHelper(int x, int y, Array divideSum){
+    function int divideHelper(int x, int y){
         var int q;
         if ((y > x) | (y < 0)) {
             return 0;
         }
 
-        let q = Math.divideHelper(x, y + y, divideSum);
+        let q = Math.divideHelper(x, y + y);
 
-        if ((x - divideSum[0]) < y) {
+        if ((x - divideSum) < y) {
             return q + q;
         }
         else {
-            let divideSum[0] = divideSum[0] + y;
+            let divideSum = divideSum + y;
             return q + q + 1;
         }
     }
@@ -83,11 +84,9 @@ class Math {
     function int divide(int x, int y) {
         var int q;
         var boolean xNegative, yNegative; 
-        var Array divideSum;
 
-        let divideSum = Array.new(1);
-        let divideSum[0] = 0;
-        let q = Math.divideHelper(Math.abs(x), Math.abs(y), divideSum);
+        let divideSum = 0;
+        let q = Math.divideHelper(Math.abs(x), Math.abs(y));
         let xNegative = Math.bit(x, 15);
         let yNegative = Math.bit(y, 15);
         if (xNegative = yNegative) {
