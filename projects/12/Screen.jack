@@ -72,7 +72,7 @@ class Screen {
 
     /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
     function void drawLine(int x1, int y1, int x2, int y2) {
-        var int dx, dy, a, b, tmp, i, diff, dxPlus1, dyPlus1;
+        var int dx, dy, a, b, tmp, i, addr, fillValue, diff, dxPlus1, dyPlus1;
         let dx = x2 - x1;
         let dy = y2 - y1;
 
@@ -97,7 +97,7 @@ class Screen {
             return;
         }
 
-        
+        // TODO can optimized
         // Draw horizontal lines
         if (dy = 0) {
             // Make sure x1 < x2
@@ -105,11 +105,49 @@ class Screen {
                 let tmp = x1; let x1 = x2; let x2 = tmp;
             }
             let i = x1;
+            let tmp = 16 + (16 * (x1 / 16));
+            if (tmp > x2) {
+                let tmp = x2;
+            }
+            while (i < tmp) {
+                do Screen.drawPixel(i, y1);
+                let i = i + 1;
+            }
+
+            // i = tmp
+            if (i = x2) {
+                do Screen.drawPixel(i, y1);
+                return;
+            }
+
+            // direct write the memory
+            let tmp = x2 - i + 1;
+            if (tmp > 16) {
+                let tmp = tmp / 16;
+                let addr = baseAddress + (32 * y1) + (i / 16);
+                if (isBlack) {
+                    let fillValue = -1;   // all 1
+                }
+                else {
+                    let fillValue = 0;
+                }
+                let i = 0;
+                while (i < tmp) {
+                    do Memory.poke(addr + i, fillValue);
+                    let i = i + 1;
+                }
+            }
+
+            let tmp = x2 - (16 * (x2 / 16)); // x2 mod 16
+            if (tmp = 15) {
+                return;
+            }
+            let i = x2 - tmp;
             while (i < x2) {
                 do Screen.drawPixel(i, y1);
                 let i = i + 1;
             }
-            do Screen.drawPixel(i, y1);  // i = x2
+            do Screen.drawPixel(i, y1);  // i = x2;
             return;
         }
 
