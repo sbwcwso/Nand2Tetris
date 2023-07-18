@@ -62,10 +62,13 @@ class Memory {
         var Array pr;
         let block = o - 2;
         let pr = heap;
-        while(~(pr = null)) {
+        while(true) {
+            if (pr[0] = null) {
+                let pr[0] = block;
+                return;
+            }
             let pr = pr[0];
         }
-        let pr[0] = block;
         return;
     }    
 }
