@@ -221,56 +221,108 @@ class Screen {
     /** Draws a filled rectangle whose top left corner is (x1, y1)
      * and bottom right corner is (x2,y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
-        var int i, j, tmp, offset, x2Plus1, y2Plus1, addr, fillValue;
+        var int i, j, startX, offset, x1Div16, x2Div16, x1Mod16, x2Mod16, x2Plus1, y2Plus1, startAddr, addr, fillValue, value;
+        var boolean returnFlag;
 
         let x2Plus1 = x2 + 1;
         let y2Plus1 = y2 + 1;
 
-        let i = x1;
-        let tmp = 16 + (16 * (x1 / 16));
-        let offset = tmp / 16;
+        let x1Div16 = x1 / 16;
+        let x2Div16 = x2 / 16;
+        let x1Mod16 = x1 - (16 * x1Div16);
+        let x2Mod16 = x2 - (16 * x2Div16);
+        let startX = 16 + x1 - x1Mod16;
+        let startAddr = baseAddress + (32 * y1) + x1Div16;
 
-        if (tmp > (x2 - 1)) {
-            let j = y1;
-            while(j < y2Plus1) {
-                let i = x1;
-                while (i < x2Plus1) {
-                    do Screen.drawPixel(i, j);
+        if (startX > (x2 - 1)) {
+            let i = x1Mod16;
+            let fillValue = 0;
+            if (x2Mod16 = 0) {
+                while (i < 16) {
+                    let fillValue = fillValue + twoToThe[i];
                     let i = i + 1;
                 }
-                let j = j + 1;
+                let j = y1;
+                while(j < y2Plus1) {
+                    do Screen.drawPixel(x2, j);
+                    let j = j + 1;
+                }
+            }
+            else {
+                while (i < x2Mod16) {
+                    let fillValue = fillValue + twoToThe[i];
+                    let i = i + 1;
+                }
+            }
+            let fillValue = fillValue + twoToThe[i];
+
+            let j = y1;
+            let addr = startAddr;
+            if (isBlack) {
+                while(j < y2Plus1) {
+                    let value = Memory.peek(addr);
+                    let value = value | fillValue;
+                    do Memory.poke(addr, value);
+                    let j = j + 1;
+                    let addr = addr + 32;
+                }
+            } else {
+                let fillValue = ~fillValue;
+                while(j < y2Plus1) {
+                    let value = Memory.peek(addr);
+                    let value = value & fillValue;
+                    do Memory.poke(addr, value);
+                    let j = j + 1;
+                    let addr = addr + 32;
+                }
             }
             return;
         }
 
+        // draw the begin line
+        let i = x1Mod16;
+        let fillValue = 0;
+        while (i < 16) {
+            let fillValue = fillValue + twoToThe[i];
+            let i = i + 1;
+        }
 
         let j = y1;
-        while(j < y2Plus1) {
-            let i = x1;
-            while (i < tmp) {
-                do Screen.drawPixel(i, j);
-                let i = i + 1;
+        let addr = startAddr;
+        if (isBlack) {
+            while(j < y2Plus1) {
+                let value = Memory.peek(addr);
+                let value = value | fillValue;
+                do Memory.poke(addr, value);
+                let j = j + 1;
+                let addr = addr + 32;
             }
-            let j = j + 1;
+        } else {
+            let fillValue = ~fillValue;
+            while(j < y2Plus1) {
+                let value = Memory.peek(addr);
+                let value = value & fillValue;
+                do Memory.poke(addr, value);
+                let j = j + 1;
+                let addr = addr + 32;
+            }
         }
 
 
         // direct write the memory
-        let tmp = x2 - i + 1;
-        if (tmp > 16) {
-            let tmp = tmp / 16;
+        let offset = (x2 - startX + 1) / 16;
+        if (offset > 0) {
+            let addr = startAddr + 1;
             if (isBlack) {
                 let fillValue = -1;   // all 1
-            }
-            else {
+            } else {
                 let fillValue = 0;
             }
 
             let j = y1;
-            let addr = baseAddress + (32 * j) + offset;
             while (j < y2Plus1) {
                 let i = 0;
-                while (i < tmp) {
+                while (i < offset) {
                     do Memory.poke(addr + i, fillValue);
                     let i = i + 1;
                 }
@@ -279,18 +331,38 @@ class Screen {
             }
         }
 
-        let tmp = x2 - (16 * (x2 / 16)); // x2 mod 16
-        if (tmp = 15) {
+        if (x2Mod16 = 15) {
             return;
         }
+
+        // drwa the end line
+        let i = 0;
+        let fillValue = 0;
+        while (i < x2Mod16) {
+            let fillValue = fillValue + twoToThe[i];
+            let i = i + 1;
+        }
+        let fillValue = fillValue + twoToThe[i];
+
+        let addr = startAddr + 1 + offset;
         let j = y1;
-        while (j < y2Plus1) {
-            let i = x2 - tmp;
-            while (i < x2Plus1) {
-                do Screen.drawPixel(i, j);
-                let i = i + 1;
+        if (isBlack) {
+            while(j < y2Plus1) {
+                let value = Memory.peek(addr);
+                let value = value | fillValue;
+                do Memory.poke(addr, value);
+                let j = j + 1;
+                let addr = addr + 32;
             }
-            let j = j + 1;
+        } else {
+            let fillValue = ~fillValue;
+            while(j < y2Plus1) {
+                let value = Memory.peek(addr);
+                let value = value & fillValue;
+                do Memory.poke(addr, value);
+                let j = j + 1;
+                let addr = addr + 32;
+            }
         }
 
         return;

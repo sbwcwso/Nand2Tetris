@@ -751,29 +751,49 @@ return
 label IF_FALSE16
 push constant 0
 return
-function Screen.drawRectangle 8
+function Screen.drawRectangle 15
 push argument 2
 push constant 1
 add
-pop local 4
+pop local 8
 push argument 3
 push constant 1
 add
+pop local 9
+push argument 0
+push constant 16
+call Math.divide 2
+pop local 4
+push argument 2
+push constant 16
+call Math.divide 2
 pop local 5
 push argument 0
-pop local 0
 push constant 16
+push local 4
+call Math.multiply 2
+sub
+pop local 6
+push argument 2
+push constant 16
+push local 5
+call Math.multiply 2
+sub
+pop local 7
 push constant 16
 push argument 0
-push constant 16
-call Math.divide 2
+add
+push local 6
+sub
+pop local 2
+push static 0
+push constant 32
+push argument 1
 call Math.multiply 2
 add
-pop local 2
-push local 2
-push constant 16
-call Math.divide 2
-pop local 3
+push local 4
+add
+pop local 10
 push local 2
 push argument 2
 push constant 1
@@ -782,199 +802,430 @@ gt
 if-goto IF_TRUE0
 goto IF_FALSE0
 label IF_TRUE0
-push argument 1
-pop local 1
-label WHILE_EXP0
-push local 1
-push local 5
-lt
-not
-if-goto WHILE_END0
-push argument 0
+push local 6
 pop local 0
-label WHILE_EXP1
-push local 0
-push local 4
-lt
-not
-if-goto WHILE_END1
-push local 0
-push local 1
-call Screen.drawPixel 2
-pop temp 0
-push local 0
-push constant 1
-add
-pop local 0
-goto WHILE_EXP1
-label WHILE_END1
-push local 1
-push constant 1
-add
-pop local 1
-goto WHILE_EXP0
-label WHILE_END0
 push constant 0
-return
-label IF_FALSE0
-push argument 1
-pop local 1
-label WHILE_EXP2
-push local 1
-push local 5
-lt
-not
-if-goto WHILE_END2
-push argument 0
-pop local 0
-label WHILE_EXP3
-push local 0
-push local 2
-lt
-not
-if-goto WHILE_END3
-push local 0
-push local 1
-call Screen.drawPixel 2
-pop temp 0
-push local 0
-push constant 1
-add
-pop local 0
-goto WHILE_EXP3
-label WHILE_END3
-push local 1
-push constant 1
-add
-pop local 1
-goto WHILE_EXP2
-label WHILE_END2
-push argument 2
-push local 0
-sub
-push constant 1
-add
-pop local 2
-push local 2
-push constant 16
-gt
+pop local 12
+push local 7
+push constant 0
+eq
 if-goto IF_TRUE1
 goto IF_FALSE1
 label IF_TRUE1
-push local 2
+label WHILE_EXP0
+push local 0
 push constant 16
-call Math.divide 2
-pop local 2
+lt
+not
+if-goto WHILE_END0
+push local 12
+push local 0
+push static 3
+add
+pop pointer 1
+push that 0
+add
+pop local 12
+push local 0
+push constant 1
+add
+pop local 0
+goto WHILE_EXP0
+label WHILE_END0
+push argument 1
+pop local 1
+label WHILE_EXP1
+push local 1
+push local 9
+lt
+not
+if-goto WHILE_END1
+push argument 2
+push local 1
+call Screen.drawPixel 2
+pop temp 0
+push local 1
+push constant 1
+add
+pop local 1
+goto WHILE_EXP1
+label WHILE_END1
+goto IF_END1
+label IF_FALSE1
+label WHILE_EXP2
+push local 0
+push local 7
+lt
+not
+if-goto WHILE_END2
+push local 12
+push local 0
+push static 3
+add
+pop pointer 1
+push that 0
+add
+pop local 12
+push local 0
+push constant 1
+add
+pop local 0
+goto WHILE_EXP2
+label WHILE_END2
+label IF_END1
+push local 12
+push local 0
+push static 3
+add
+pop pointer 1
+push that 0
+add
+pop local 12
+push argument 1
+pop local 1
+push local 10
+pop local 11
 push static 2
 if-goto IF_TRUE2
 goto IF_FALSE2
 label IF_TRUE2
+label WHILE_EXP3
+push local 1
+push local 9
+lt
+not
+if-goto WHILE_END3
+push local 11
+call Memory.peek 1
+pop local 13
+push local 13
+push local 12
+or
+pop local 13
+push local 11
+push local 13
+call Memory.poke 2
+pop temp 0
+push local 1
 push constant 1
-neg
-pop local 7
+add
+pop local 1
+push local 11
+push constant 32
+add
+pop local 11
+goto WHILE_EXP3
+label WHILE_END3
 goto IF_END2
 label IF_FALSE2
-push constant 0
-pop local 7
-label IF_END2
-push argument 1
-pop local 1
-push static 0
-push constant 32
-push local 1
-call Math.multiply 2
-add
-push local 3
-add
-pop local 6
+push local 12
+not
+pop local 12
 label WHILE_EXP4
 push local 1
-push local 5
+push local 9
 lt
 not
 if-goto WHILE_END4
+push local 11
+call Memory.peek 1
+pop local 13
+push local 13
+push local 12
+and
+pop local 13
+push local 11
+push local 13
+call Memory.poke 2
+pop temp 0
+push local 1
+push constant 1
+add
+pop local 1
+push local 11
+push constant 32
+add
+pop local 11
+goto WHILE_EXP4
+label WHILE_END4
+label IF_END2
 push constant 0
+return
+label IF_FALSE0
+push local 6
 pop local 0
+push constant 0
+pop local 12
 label WHILE_EXP5
 push local 0
-push local 2
+push constant 16
 lt
 not
 if-goto WHILE_END5
-push local 6
+push local 12
 push local 0
+push static 3
 add
-push local 7
-call Memory.poke 2
-pop temp 0
+pop pointer 1
+push that 0
+add
+pop local 12
 push local 0
 push constant 1
 add
 pop local 0
 goto WHILE_EXP5
 label WHILE_END5
+push argument 1
+pop local 1
+push local 10
+pop local 11
+push static 2
+if-goto IF_TRUE3
+goto IF_FALSE3
+label IF_TRUE3
+label WHILE_EXP6
+push local 1
+push local 9
+lt
+not
+if-goto WHILE_END6
+push local 11
+call Memory.peek 1
+pop local 13
+push local 13
+push local 12
+or
+pop local 13
+push local 11
+push local 13
+call Memory.poke 2
+pop temp 0
 push local 1
 push constant 1
 add
 pop local 1
-push local 6
+push local 11
 push constant 32
 add
-pop local 6
-goto WHILE_EXP4
-label WHILE_END4
-label IF_FALSE1
-push argument 2
-push constant 16
-push argument 2
-push constant 16
-call Math.divide 2
-call Math.multiply 2
-sub
-pop local 2
-push local 2
-push constant 15
-eq
-if-goto IF_TRUE3
-goto IF_FALSE3
-label IF_TRUE3
-push constant 0
-return
+pop local 11
+goto WHILE_EXP6
+label WHILE_END6
+goto IF_END3
 label IF_FALSE3
-push argument 1
-pop local 1
-label WHILE_EXP6
-push local 1
-push local 5
-lt
+push local 12
 not
-if-goto WHILE_END6
-push argument 2
-push local 2
-sub
-pop local 0
+pop local 12
 label WHILE_EXP7
-push local 0
-push local 4
+push local 1
+push local 9
 lt
 not
 if-goto WHILE_END7
-push local 0
+push local 11
+call Memory.peek 1
+pop local 13
+push local 13
+push local 12
+and
+pop local 13
+push local 11
+push local 13
+call Memory.poke 2
+pop temp 0
 push local 1
-call Screen.drawPixel 2
+push constant 1
+add
+pop local 1
+push local 11
+push constant 32
+add
+pop local 11
+goto WHILE_EXP7
+label WHILE_END7
+label IF_END3
+push argument 2
+push local 2
+sub
+push constant 1
+add
+push constant 16
+call Math.divide 2
+pop local 3
+push local 3
+push constant 0
+gt
+if-goto IF_TRUE4
+goto IF_FALSE4
+label IF_TRUE4
+push local 10
+push constant 1
+add
+pop local 11
+push static 2
+if-goto IF_TRUE5
+goto IF_FALSE5
+label IF_TRUE5
+push constant 1
+neg
+pop local 12
+goto IF_END5
+label IF_FALSE5
+push constant 0
+pop local 12
+label IF_END5
+push argument 1
+pop local 1
+label WHILE_EXP8
+push local 1
+push local 9
+lt
+not
+if-goto WHILE_END8
+push constant 0
+pop local 0
+label WHILE_EXP9
+push local 0
+push local 3
+lt
+not
+if-goto WHILE_END9
+push local 11
+push local 0
+add
+push local 12
+call Memory.poke 2
 pop temp 0
 push local 0
 push constant 1
 add
 pop local 0
-goto WHILE_EXP7
-label WHILE_END7
+goto WHILE_EXP9
+label WHILE_END9
 push local 1
 push constant 1
 add
 pop local 1
-goto WHILE_EXP6
-label WHILE_END6
+push local 11
+push constant 32
+add
+pop local 11
+goto WHILE_EXP8
+label WHILE_END8
+label IF_FALSE4
+push local 7
+push constant 15
+eq
+if-goto IF_TRUE6
+goto IF_FALSE6
+label IF_TRUE6
+push constant 0
+return
+label IF_FALSE6
+push constant 0
+pop local 0
+push constant 0
+pop local 12
+label WHILE_EXP10
+push local 0
+push local 7
+lt
+not
+if-goto WHILE_END10
+push local 12
+push local 0
+push static 3
+add
+pop pointer 1
+push that 0
+add
+pop local 12
+push local 0
+push constant 1
+add
+pop local 0
+goto WHILE_EXP10
+label WHILE_END10
+push local 12
+push local 0
+push static 3
+add
+pop pointer 1
+push that 0
+add
+pop local 12
+push local 10
+push constant 1
+add
+push local 3
+add
+pop local 11
+push argument 1
+pop local 1
+push static 2
+if-goto IF_TRUE7
+goto IF_FALSE7
+label IF_TRUE7
+label WHILE_EXP11
+push local 1
+push local 9
+lt
+not
+if-goto WHILE_END11
+push local 11
+call Memory.peek 1
+pop local 13
+push local 13
+push local 12
+or
+pop local 13
+push local 11
+push local 13
+call Memory.poke 2
+pop temp 0
+push local 1
+push constant 1
+add
+pop local 1
+push local 11
+push constant 32
+add
+pop local 11
+goto WHILE_EXP11
+label WHILE_END11
+goto IF_END7
+label IF_FALSE7
+push local 12
+not
+pop local 12
+label WHILE_EXP12
+push local 1
+push local 9
+lt
+not
+if-goto WHILE_END12
+push local 11
+call Memory.peek 1
+pop local 13
+push local 13
+push local 12
+and
+pop local 13
+push local 11
+push local 13
+call Memory.poke 2
+pop temp 0
+push local 1
+push constant 1
+add
+pop local 1
+push local 11
+push constant 32
+add
+pop local 11
+goto WHILE_EXP12
+label WHILE_END12
+label IF_END7
 push constant 0
 return
 function Screen.drawCircle 5
