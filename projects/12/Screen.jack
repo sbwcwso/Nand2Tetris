@@ -97,7 +97,6 @@ class Screen {
             return;
         }
 
-        // TODO can optimized
         // Draw horizontal lines
         if (dy = 0) {
             // Make sure x1 < x2
@@ -222,12 +221,76 @@ class Screen {
     /** Draws a filled rectangle whose top left corner is (x1, y1)
      * and bottom right corner is (x2,y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
-        var int y, y2Plus1;
-        let y = y1;
+        var int i, j, tmp, offset, x2Plus1, y2Plus1, addr, fillValue;
+
+        let x2Plus1 = x2 + 1;
         let y2Plus1 = y2 + 1;
-        while (y < y2Plus1) {
-            do Screen.drawLine(x1, y, x2, y);
-            let y = y + 1;
+
+        let i = x1;
+        let tmp = 16 + (16 * (x1 / 16));
+        let offset = tmp / 16;
+
+        if (tmp > (x2 - 1)) {
+            let j = y1;
+            while(j < y2Plus1) {
+                let i = x1;
+                while (i < x2Plus1) {
+                    do Screen.drawPixel(i, j);
+                    let i = i + 1;
+                }
+                let j = j + 1;
+            }
+            return;
+        }
+
+
+        let j = y1;
+        while(j < y2Plus1) {
+            let i = x1;
+            while (i < tmp) {
+                do Screen.drawPixel(i, j);
+                let i = i + 1;
+            }
+            let j = j + 1;
+        }
+
+
+        // direct write the memory
+        let tmp = x2 - i + 1;
+        if (tmp > 16) {
+            let tmp = tmp / 16;
+            if (isBlack) {
+                let fillValue = -1;   // all 1
+            }
+            else {
+                let fillValue = 0;
+            }
+
+            let j = y1;
+            let addr = baseAddress + (32 * j) + offset;
+            while (j < y2Plus1) {
+                let i = 0;
+                while (i < tmp) {
+                    do Memory.poke(addr + i, fillValue);
+                    let i = i + 1;
+                }
+                let j = j + 1;
+                let addr = addr + 32;
+            }
+        }
+
+        let tmp = x2 - (16 * (x2 / 16)); // x2 mod 16
+        if (tmp = 15) {
+            return;
+        }
+        let j = y1;
+        while (j < y2Plus1) {
+            let i = x2 - tmp;
+            while (i < x2Plus1) {
+                do Screen.drawPixel(i, j);
+                let i = i + 1;
+            }
+            let j = j + 1;
         }
 
         return;
