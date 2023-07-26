@@ -43,19 +43,19 @@ class Parser():
         return self._symbol
 
     @property
-    def dest(self):
+    def dest(self) -> str:
         "Return the dest mnemonic in the current C-COMMAND."
         assert self._command_type == "C_COMMAND"
         return self._dest
 
     @property
-    def comp(self):
+    def comp(self) -> str:
         "Return the comp mnemonic in the current C-COMMAND"
         assert self._command_type == "C_COMMAND"
         return self._comp
 
     @property
-    def jump(self):
+    def jump(self) -> str:
         "Return the jump mnemonic in the current C-COMMAND"
         assert self._command_type == "C_COMMAND"
         return self._jump
