@@ -66,10 +66,10 @@ PushConstantAsm = """\
 """
 
 MemorySegmentBase = {
-    "local": 		"LCL",
-    "argument": 	"ARG",
-    "this":		 	"THIS",
-    "that":		 	"THAT",
+    "local":    "LCL",
+    "argument": "ARG",
+    "this":     "THIS",
+    "that":     "THAT",
 }
 
 PushMemorySegmentAsm = """\

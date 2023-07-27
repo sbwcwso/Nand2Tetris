@@ -137,12 +137,10 @@ class TestVMtranslator(unittest.TestCase):
             VMtranslator(vm_file_or_path).run()
             command = "../../tools/CPUEmulator.sh  {}".format(tst_file)
             try:
-                # 运行 shell 命令，并捕获输出结果
                 subprocess.run(command, check=True, shell=True,
                                capture_output=True, text=True)
                 print("{} Success".format(tst_file))
             except subprocess.CalledProcessError as e:
-                # 打印命令运行失败的输出结果
                 raise Exception("Error: {}".format(e.stderr))
 
 
