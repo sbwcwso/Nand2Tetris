@@ -140,7 +140,7 @@
     D = M
     @ARG
     M = D
-    @R14        // LCL=*(FRAME-1)
+    @R14        // LCL=*(FRAME-4)
     M = M - 1
     A = M
     D = M
