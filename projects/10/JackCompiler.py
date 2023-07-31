@@ -704,7 +704,6 @@ class JackAnalyzer():
     def compare_xml_files(file: str, target_file: str):
         command = "../../tools/TextComparer.sh {} {}".format(file, target_file)
         try:
-            # 运行 shell 命令，并捕获输出结果
             subprocess.run(command,
                            check=True,
                            shell=True,
@@ -712,7 +711,6 @@ class JackAnalyzer():
                            text=True)
             print("{} and {} is the same!".format(file, target_file))
         except subprocess.CalledProcessError as e:
-            # 打印命令运行失败的输出结果
             raise Exception("Error: {}".format(e.stdout))
 
 
