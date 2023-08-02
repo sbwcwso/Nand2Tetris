@@ -74,13 +74,13 @@ CHIP CPU {
 
     /* PC */
                                 /* no jump(000) */
-    Or(a=zr, b=ng, out=NJGT);  /* zr == 0 and ng == 0, JGT(001) jump */
-    Not(in=NJGT, out=JGT);
+    Or(a=zr, b=ng, out=NJGT);   
+    Not(in=NJGT, out=JGT);      /* zr == 0 and ng == 0, JGT(001) jump */
     And(a=zr, b=zr, out=JEQ);   /* zr == 1, JEQ(010) jump */
     Not(in=ng, out=JGE);        /* ng == 0, JGE(011) jump */
     And(a=ng, b=ng, out=JLT);   /* ng == 1, JLT(100) jump */
     Not(in=zr, out=JNE);        /* zr == 0, JNE(101) jump */
-    Or(a=ng, b=zr, out=JLE);   /* ng == 1 or zr == 1, JLE(110) jump */
+    Or(a=ng, b=zr, out=JLE);    /* ng == 1 or zr == 1, JLE(110) jump */
                                 /* Uncondition jump(111) */
     
     Mux(a=JLE, b=true, sel=j3, out=pc11x);
