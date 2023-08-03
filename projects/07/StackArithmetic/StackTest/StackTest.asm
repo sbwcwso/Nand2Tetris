@@ -28,12 +28,13 @@
     @SP             // push true(-1) or false(0)
     A = M
     M = -1          // push true
-    @32
+    @$true.1
     D;JEQ
     @SP
     A = M
-    M = 0         // push false
-    @SP      	   // lable_true
+    M = 0          // push false
+    ($true.1)   // lable_true
+    @SP      	   
     M = M + 1
 // push constant 17
     @17
@@ -65,12 +66,13 @@
     @SP             // push true(-1) or false(0)
     A = M
     M = -1          // push true
-    @66
+    @$true.2
     D;JEQ
     @SP
     A = M
-    M = 0         // push false
-    @SP      	   // lable_true
+    M = 0          // push false
+    ($true.2)   // lable_true
+    @SP      	   
     M = M + 1
 // push constant 16
     @16
@@ -102,12 +104,13 @@
     @SP             // push true(-1) or false(0)
     A = M
     M = -1          // push true
-    @100
+    @$true.3
     D;JEQ
     @SP
     A = M
-    M = 0         // push false
-    @SP      	   // lable_true
+    M = 0          // push false
+    ($true.3)   // lable_true
+    @SP      	   
     M = M + 1
 // push constant 892
     @892
@@ -139,12 +142,13 @@
     @SP             // push true(-1) or false(0)
     A = M
     M = -1          // push true
-    @134
+    @$true.4
     D;JLT
     @SP
     A = M
-    M = 0         // push false
-    @SP      	   // lable_true
+    M = 0          // push false
+    ($true.4)   // lable_true
+    @SP      	   
     M = M + 1
 // push constant 891
     @891
@@ -176,12 +180,13 @@
     @SP             // push true(-1) or false(0)
     A = M
     M = -1          // push true
-    @168
+    @$true.5
     D;JLT
     @SP
     A = M
-    M = 0         // push false
-    @SP      	   // lable_true
+    M = 0          // push false
+    ($true.5)   // lable_true
+    @SP      	   
     M = M + 1
 // push constant 891
     @891
@@ -213,12 +218,13 @@
     @SP             // push true(-1) or false(0)
     A = M
     M = -1          // push true
-    @202
+    @$true.6
     D;JLT
     @SP
     A = M
-    M = 0         // push false
-    @SP      	   // lable_true
+    M = 0          // push false
+    ($true.6)   // lable_true
+    @SP      	   
     M = M + 1
 // push constant 32767
     @32767
@@ -250,12 +256,13 @@
     @SP             // push true(-1) or false(0)
     A = M
     M = -1          // push true
-    @236
+    @$true.7
     D;JGT
     @SP
     A = M
-    M = 0         // push false
-    @SP      	   // lable_true
+    M = 0          // push false
+    ($true.7)   // lable_true
+    @SP      	   
     M = M + 1
 // push constant 32766
     @32766
@@ -287,12 +294,13 @@
     @SP             // push true(-1) or false(0)
     A = M
     M = -1          // push true
-    @270
+    @$true.8
     D;JGT
     @SP
     A = M
-    M = 0         // push false
-    @SP      	   // lable_true
+    M = 0          // push false
+    ($true.8)   // lable_true
+    @SP      	   
     M = M + 1
 // push constant 32766
     @32766
@@ -324,12 +332,13 @@
     @SP             // push true(-1) or false(0)
     A = M
     M = -1          // push true
-    @304
+    @$true.9
     D;JGT
     @SP
     A = M
-    M = 0         // push false
-    @SP      	   // lable_true
+    M = 0          // push false
+    ($true.9)   // lable_true
+    @SP      	   
     M = M + 1
 // push constant 57
     @57

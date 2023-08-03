@@ -5,7 +5,7 @@ import subprocess
 import unittest
 
 
-def run_hdl_tst_file(tst_file):
+def run_cpu_tst_file(tst_file):
     command = "../../../tools/CPUEmulator.sh  {}".format(tst_file)
     try:
         subprocess.run(command, check=True, shell=True,
@@ -21,7 +21,7 @@ class Test(unittest.TestCase):
             "Mult.tst",
         ]
         for tst_file in tst_files:
-            run_hdl_tst_file(tst_file)
+            run_cpu_tst_file(tst_file)
 
 
 

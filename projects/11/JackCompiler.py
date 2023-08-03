@@ -467,7 +467,7 @@ class CompilationEngine():
 
         self.get_specified_symbol(";")
 
-    def compile_subroutine(self) -> None:  # DOING
+    def compile_subroutine(self) -> None:
         """Compiles a complete method, function or constructor."""
         self.subroutine_symbol_table.reset()
 
@@ -550,7 +550,7 @@ class CompilationEngine():
         while self._is_keyword(["let", "if", "while", "do", "return"]):
             self.dispatch_statement_compile[self.tokenizer.keyword]()
 
-    def compile_do(self) -> None:  # TODO handle method call
+    def compile_do(self) -> None:
         """Compiles a do statement."""
         assert self._is_keyword("do")
         self.get_keyword()
@@ -749,17 +749,16 @@ class CompilationEngine():
     def _compile_subroutine_call(self, module_name: str, subroutine_name: str) -> None:
         """Compile a class subroutine or a object subroutine. The token should start at the `(`, and eat the corresponding `)`"""
 
-        if module_name == "this":
+        if module_name == "this":  # method of current class
             argument_nums = 1
             class_name = self.class_name
             self.vm_writer.write_push(Segment.POINTER, 0)
         else:
             var_type, var_kind, var_index = self._consult_symbol_table(module_name)
-            if var_type is None or var_kind is None or var_index is None:
-                is_method = False
+            if var_type is None or var_kind is None or var_index is None:  # function
                 argument_nums = 0
                 class_name = module_name
-            else:
+            else:  # method of var_type
                 argument_nums = 1
                 class_name = var_type
                 self.vm_writer.write_push(var_kind.value, var_index)

@@ -1,3 +1,5 @@
 *.zip
 *.pdf
 projects/01/reading/app 2 .pdf
+/tools/bin/*.dat
+
