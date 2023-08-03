@@ -1,0 +1,48 @@
+/** Tokenizer for the Scheme Calculator */
+class Tokenizer {
+    field String input;  // a line input
+    field int index;    
+    field int currentToken;
+
+    /* Create a new tokenizer accoring to the input */
+    constructor Tokenizer new(String line) {
+        let input = line;
+        let index = 0;
+
+        return this;
+    }
+
+    /** Advance the tokenizer */
+    method void advance() {
+        return;
+    }
+
+    /** Eat extra space and check if there is more tokens*/
+    method boolean hasMoreTokens() {
+        do eatExtraSpace();
+        return index < input.length();
+    }
+
+    /** Eat extra space */
+    method void eatExtraSpace() {
+        while ((index < input.length()) & (input.charAt(index) = 32) ) {
+            let index = index + 1;
+        }
+        return;
+    }
+
+    /** Get the current token type
+     *  @return 1: '('
+     *          2: '+'|'-'|'*'|'/'
+     *          3: int
+     *          4: ')'
+     */
+    method int getCurrentTokenType() {
+        return 0;
+    }
+
+    /** Return current token */
+    method int getCurrentToken() {
+        return currentToken;
+    }
+}

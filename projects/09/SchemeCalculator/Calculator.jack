@@ -1,0 +1,34 @@
+/** Comput the given Pair */
+class Calculator {
+
+    function void printPrompt(){
+        // print "> "
+        do Output.printChar(62);
+        do Output.printChar(32);
+
+        return;
+    }
+
+    function int calculate() {
+        var int result, leftParenthesesNum, index;
+        var String line;
+
+        let leftParenthesesNum = 0;
+
+        do Calculator.printPrompt();
+        let line = Keyboard.readLine();
+
+        if ((line.size < 1) | ~((line.charAt(0) = 40))) {   // Ascii('(') = 40
+            do Sys.error(1);
+        }
+
+        let index = 1;
+
+        while (leftParenthesesNum > 0) {
+            Calculator.printPrompt();
+            let line = Keyboard.readLine();
+
+        }
+
+    }
+}
