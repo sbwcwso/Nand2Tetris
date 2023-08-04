@@ -1,0 +1,201 @@
+function Calculator.printPrompt 0
+push constant 62
+call Output.printChar 1
+pop temp 0
+push constant 32
+call Output.printChar 1
+pop temp 0
+push constant 0
+return
+function Calculator.createCalcUnit 1
+push argument 0
+call Tokenizer.getCurrentTokenType 1
+push constant 1
+eq
+not
+if-goto IF_TRUE0
+goto IF_FALSE0
+label IF_TRUE0
+push constant 1
+call Sys.error 1
+pop temp 0
+label IF_FALSE0
+push argument 0
+call Tokenizer.advance 1
+pop temp 0
+push argument 0
+call Tokenizer.getCurrentTokenType 1
+pop local 0
+push local 0
+push constant 3
+lt
+push local 0
+push constant 6
+gt
+or
+if-goto IF_TRUE1
+goto IF_FALSE1
+label IF_TRUE1
+push constant 1
+call Sys.error 1
+pop temp 0
+label IF_FALSE1
+push local 0
+call CalcUnit.new 1
+return
+function Calculator.calculate 8
+label WHILE_EXP0
+push constant 0
+not
+not
+if-goto WHILE_END0
+call Calculator.printPrompt 0
+pop temp 0
+push constant 0
+call String.new 1
+call Keyboard.readLine 1
+pop local 2
+push local 2
+push constant 0
+call String.charAt 2
+push constant 69
+eq
+if-goto IF_TRUE0
+goto IF_FALSE0
+label IF_TRUE0
+push constant 0
+return
+label IF_FALSE0
+push local 2
+call Tokenizer.new 1
+pop local 3
+push local 3
+call Tokenizer.advance 1
+pop temp 0
+push local 3
+call Calculator.createCalcUnit 1
+push constant 0
+call List.new 2
+pop local 4
+push local 4
+pop local 5
+label WHILE_EXP1
+push local 3
+call Tokenizer.hasMoreTokens 1
+not
+if-goto WHILE_END1
+push local 3
+call Tokenizer.advance 1
+pop temp 0
+push local 3
+call Tokenizer.getCurrentTokenType 1
+pop local 0
+push local 0
+push constant 1
+eq
+if-goto IF_TRUE1
+goto IF_FALSE1
+label IF_TRUE1
+push local 3
+call Calculator.createCalcUnit 1
+push local 5
+call List.new 2
+pop local 5
+goto IF_END1
+label IF_FALSE1
+push local 0
+push constant 2
+eq
+if-goto IF_TRUE2
+goto IF_FALSE2
+label IF_TRUE2
+push local 5
+call List.getData 1
+pop local 7
+push local 7
+call CalcUnit.apply 1
+pop local 1
+push local 5
+push local 4
+eq
+if-goto IF_TRUE3
+goto IF_FALSE3
+label IF_TRUE3
+push local 3
+call Tokenizer.hasMoreTokens 1
+if-goto IF_TRUE4
+goto IF_FALSE4
+label IF_TRUE4
+push constant 1
+call Sys.error 1
+pop temp 0
+label IF_FALSE4
+push local 1
+call Output.printInt 1
+pop temp 0
+call Output.println 0
+pop temp 0
+goto IF_END3
+label IF_FALSE3
+push local 5
+pop local 6
+push local 5
+call List.getData 1
+pop local 7
+push local 7
+call CalcUnit.apply 1
+pop local 1
+push local 7
+call CalcUnit.dispose 1
+pop temp 0
+push local 6
+call List.getNext 1
+pop local 5
+push local 6
+call Memory.deAlloc 1
+pop temp 0
+push local 5
+call List.getData 1
+pop local 7
+push local 7
+push local 1
+call CalcUnit.addOperand 2
+pop temp 0
+label IF_END3
+goto IF_END2
+label IF_FALSE2
+push local 5
+call List.getData 1
+pop local 7
+push local 7
+push local 3
+call Tokenizer.getCurrentToken 1
+call CalcUnit.addOperand 2
+pop temp 0
+label IF_END2
+label IF_END1
+goto WHILE_EXP1
+label WHILE_END1
+push local 3
+call Tokenizer.dispose 1
+pop temp 0
+push local 4
+call List.getData 1
+pop local 7
+push local 7
+call CalcUnit.isCalculated 1
+not
+if-goto IF_TRUE5
+goto IF_FALSE5
+label IF_TRUE5
+push constant 1
+call Sys.error 1
+pop temp 0
+label IF_FALSE5
+push local 7
+call CalcUnit.dispose 1
+pop temp 0
+goto WHILE_EXP0
+label WHILE_END0
+push constant 0
+return

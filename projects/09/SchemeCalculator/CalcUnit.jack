@@ -1,0 +1,133 @@
+/** CalcUnit for the Scheme Calculator */
+class CalcUnit {
+    field int operator;   // 0: +; 1: -; 2: *; 3: /;
+    field List operands;
+    field List tail;     // pointer to the last item of list operands
+    field boolean calculated;
+
+    constructor CalcUnit new(int token_type) {
+        let operator = token_type - 3;
+        let operands = null;
+        let tail = null;
+        let calculated = false;
+
+        return this;
+    }
+
+    /** Add operand to the end of the operands list */
+    method void addOperand(int operand) {
+        if (operands = null) {
+            let operands = List.new(operand, null);
+            let tail = operands;
+        } else {
+            do tail.setNext(List.new(operand, null));
+            let tail = tail.getNext();
+        }
+        return;
+    }
+
+    method int applyAdd() {
+        var int res;
+        var List p;
+        let res = 0;
+        let p = operands;
+        while (~(p = null)) {
+            let res = res + p.getData();
+            let p = p.getNext();
+        }
+        return res;
+    }
+
+    method int applySub() {
+        var int res;
+        var List p;
+
+        if (operands = null) {
+            do Sys.error(1);  // At least one operand for sub
+        }
+        if (operands.getNext() = null) {
+            // Only on operand
+            let res = -(operands.getData());
+        }
+        else {
+            // At least two operand
+            let res = operands.getData();
+            let p = operands.getNext();
+            while (~(p = null)) {
+                let res = res - p.getData();
+                let p = p.getNext();
+            }
+        }
+        return res;
+    }
+
+    method int applyMul() {
+        var int res;
+        var List p;
+        let res = 1;
+        let p = operands;
+        while (~(p = null)) {
+            let res = res * p.getData();
+            let p = p.getNext();
+        }
+        return res;
+    }
+
+    method int applyDiv() {
+        var int res;
+        var List p;
+
+        if (operands = null) {
+            do Sys.error(1);  // At least one operand for div
+        }
+        if (operands.getNext() = null) {
+            // Only on operand
+            let res = 1 / (operands.getData());
+        }
+        else {
+            // At least two operand
+            let res = operands.getData();
+            let p = operands.getNext();
+            while (~(p = null)) {
+                let res = res / p.getData();
+                let p = p.getNext();
+            }
+        }
+
+        return res;
+    }
+
+    /** calc current calcUnit and return the result */
+    method int apply() {
+        var int res;
+        if (operator = 0) {
+            let res = applyAdd();
+        }
+        if (operator = 1) {
+            let res= applySub();
+        }
+        if (operator = 2) {
+            let res = applyMul();
+        }
+        if (operator = 3){
+            let res = applyDiv();
+        }
+
+        let calculated = true;
+        return res;
+    }
+
+    method boolean isCalculated() {
+        return calculated;
+    }
+
+    method void dispose() {
+        if (~(operands = null)) {
+            do operands.dispose();
+        }
+        do Memory.deAlloc(this);
+
+        return;
+    }
+}
+

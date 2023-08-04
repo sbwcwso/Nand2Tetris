@@ -9,26 +9,80 @@ class Calculator {
         return;
     }
 
-    function int calculate() {
-        var int result, leftParenthesesNum, index;
+    function CalcUnit createCalcUnit(Tokenizer tokenizer) {
+        var int type;
+        if (~(tokenizer.getCurrentTokenType() = 1)) {
+            do Sys.error(1);  // first token should be '('
+        }
+        do tokenizer.advance();
+        let type = tokenizer.getCurrentTokenType();
+        if ((type < 3) | (type > 6)) {
+            do Sys.error(1);  // second token should be operator
+        }
+        return CalcUnit.new(type);
+    } 
+
+    function void calculate() {
+        var int tokenType, calcResult;
         var String line;
+        var Tokenizer tokenizer;
+        var List firstCalcUnitInList, calcUnitList, p;
+        var CalcUnit calcUnit;
 
-        let leftParenthesesNum = 0;
+        while (true) {
+            do Calculator.printPrompt();
+            let line = Keyboard.readLine("");
+            if (line.charAt(0) = 69) {  // 'E'
+                return;
+            }
+            let tokenizer = Tokenizer.new(line);
+            do tokenizer.advance();
+            let firstCalcUnitInList = List.new(Calculator.createCalcUnit(tokenizer), null);
+            let calcUnitList = firstCalcUnitInList;
 
-        do Calculator.printPrompt();
-        let line = Keyboard.readLine();
+            while (tokenizer.hasMoreTokens()) {
+                do tokenizer.advance();
+                let tokenType = tokenizer.getCurrentTokenType();
+                if (tokenType = 1) {
+                    let calcUnitList = List.new(Calculator.createCalcUnit(tokenizer), calcUnitList);
+                }
+                else {
+                    if (tokenType = 2) {
+                        let calcUnit = calcUnitList.getData();
+                        let calcResult = calcUnit.apply();
+                        if (calcUnitList = firstCalcUnitInList) {
+                            if (tokenizer.hasMoreTokens()) {
+                                do Sys.error(1);  // extra tokens
+                            }
+                            do Output.printInt(calcResult);
+                            do Output.println();
+                        }
+                        else {
+                            let p = calcUnitList;
+                            let calcUnit = calcUnitList.getData();
+                            let calcResult = calcUnit.apply();
+                            do calcUnit.dispose();
 
-        if ((line.size < 1) | ~((line.charAt(0) = 40))) {   // Ascii('(') = 40
-            do Sys.error(1);
+                            let calcUnitList = p.getNext();
+                            do Memory.deAlloc(p);
+
+                            let calcUnit = calcUnitList.getData();
+                            do calcUnit.addOperand(calcResult);
+                        }
+                    }
+                    else {
+                        let calcUnit = calcUnitList.getData();
+                        do calcUnit.addOperand(tokenizer.getCurrentToken());
+                    } 
+                }
+            }
+            do tokenizer.dispose();
+            let calcUnit = firstCalcUnitInList.getData();
+            if (~(calcUnit.isCalculated())) {
+                do Sys.error(1);  // Mismatched parentheses
+            }
+            do calcUnit.dispose();
         }
-
-        let index = 1;
-
-        while (leftParenthesesNum > 0) {
-            Calculator.printPrompt();
-            let line = Keyboard.readLine();
-
-        }
-
+        return;
     }
 }

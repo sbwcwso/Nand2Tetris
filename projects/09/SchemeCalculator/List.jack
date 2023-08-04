@@ -15,6 +15,12 @@ class List {
         return this;
     }
 
+    /** Set next. */
+    method void setNext(List cdr) {
+        let next = cdr;
+        return;
+    }
+
     /** Accessors. */
     method int getData() { return data; }
     method int getNext() { return next; }
@@ -30,6 +36,7 @@ class List {
         }
         return;
     }
+
 
     /** Disposes this List by recursively disposing its tail. */
     method void dispose() {

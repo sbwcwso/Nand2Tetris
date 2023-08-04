@@ -3,46 +3,110 @@ class Tokenizer {
     field String input;  // a line input
     field int index;    
     field int currentToken;
+    field int tokenType; // 1: '('; 2: ')'; 3: '+'; 4: '-'; 5: '*'; 6: '/'; 7: int number 
 
     /* Create a new tokenizer accoring to the input */
     constructor Tokenizer new(String line) {
         let input = line;
         let index = 0;
 
+        do eatExtraSpace();
         return this;
     }
 
-    /** Advance the tokenizer */
+    /** Advance the tokenizer
+     * get the tokenType, update currentToken if tokenType is a int number
+     */
     method void advance() {
+        var int val;
+        if (~(hasMoreTokens())) {
+            do Sys.error(1);  // No more tokens
+        }
+        if (input.charAt(index) = 40) { // '('
+            let tokenType = 1;
+            let index = index + 1;
+            do eatExtraSpace();
+            return;
+        }
+        if (input.charAt(index) = 41) { // ')'
+            let tokenType = 2;
+            let index = index + 1;
+            do eatExtraSpace();
+            return;
+        }
+        if (input.charAt(index) = 43) { // '+'
+            let tokenType = 3;
+            let index = index + 1;
+            do eatExtraSpace();
+            return;
+        }
+        if (input.charAt(index) = 45) { // '-'
+            let tokenType = 4;
+            let index = index + 1;
+            do eatExtraSpace();
+            return;
+        }
+        if (input.charAt(index) = 42) { // '*'
+            let tokenType = 5;
+            let index = index + 1;
+            do eatExtraSpace();
+            return;
+        }
+        if (input.charAt(index) = 47) { // '/'
+            let tokenType = 6;
+            let index = index + 1;
+            do eatExtraSpace();
+            return;
+        }
+
+        // is int number
+        let tokenType = 7;
+        let currentToken = 0;
+        while (index < input.length()) {
+            if ((input.charAt(index) > 47) & (input.charAt(index) < 58)) {
+                let currentToken = (currentToken * 10) + (input.charAt(index) - 48);
+                let index = index + 1;
+            }
+            else {
+                do eatExtraSpace();
+                return;
+            }
+        }
+        do eatExtraSpace();
         return;
     }
 
     /** Eat extra space and check if there is more tokens*/
     method boolean hasMoreTokens() {
-        do eatExtraSpace();
         return index < input.length();
     }
 
     /** Eat extra space */
     method void eatExtraSpace() {
-        while ((index < input.length()) & (input.charAt(index) = 32) ) {
-            let index = index + 1;
+        while (index < input.length()) {
+            if ((input.charAt(index) = 32)) {
+                let index = index + 1;
+            }
+            else {
+                return;
+            }
         }
         return;
     }
 
-    /** Get the current token type
-     *  @return 1: '('
-     *          2: '+'|'-'|'*'|'/'
-     *          3: int
-     *          4: ')'
-     */
+    /** Get the current token type */
     method int getCurrentTokenType() {
-        return 0;
+        return tokenType;
     }
 
     /** Return current token */
     method int getCurrentToken() {
         return currentToken;
+    }
+
+    method void dispose() {
+        do input.dispose();
+        do Memory.deAlloc(this);
+        return;
     }
 }
